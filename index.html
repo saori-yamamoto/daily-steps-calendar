@@ -280,6 +280,63 @@
       display: none;
     }
 
+    .mark-picker {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .mark-picker-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 8px;
+      border-right: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .mark-option {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      min-height: 36px;
+      border: 0;
+      border-right: 1px solid var(--line-soft);
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .mark-option:last-child {
+      border-right: 0;
+    }
+
+    .mark-option:hover,
+    .mark-option:focus-visible {
+      background: #eef6ff;
+      outline: none;
+    }
+
+    .mark-option.is-active {
+      background: #1769aa;
+      color: #fff;
+    }
+
+    .mark-option[data-mark-key="flower"],
+    .mark-option[data-mark-key="star"],
+    .mark-option[data-mark-key="fire"] {
+      font-size: 18px;
+    }
+
     .btn {
       min-height: 38px;
       border: 1px solid var(--control-line);
@@ -685,12 +742,24 @@
       background: #e8f3ff;
     }
 
+    .check-cell.is-checked:not([data-mark-key="check"])::before {
+      border-color: transparent;
+      background: transparent;
+    }
+
     .check-cell.is-checked::after {
-      content: "✓";
+      content: attr(data-mark);
       position: absolute;
       font-size: 17px;
       line-height: 1;
       font-weight: 900;
+    }
+
+    .check-cell[data-mark-key="flower"].is-checked::after,
+    .check-cell[data-mark-key="star"].is-checked::after,
+    .check-cell[data-mark-key="fire"].is-checked::after {
+      font-size: 23px;
+      font-weight: 800;
     }
 
     .check-cell:focus-visible {
@@ -876,6 +945,13 @@
           <button class="nav-btn" id="currentMonth" type="button">今月</button>
           <button class="nav-btn compact" id="nextMonth" type="button" title="来月" aria-label="来月">›</button>
         </span>
+        <span class="mark-picker" id="markPicker" aria-label="表示マーク">
+          <span class="mark-picker-label">マーク</span>
+          <button class="mark-option" type="button" data-mark-key="check" title="チェック" aria-label="チェック">✓</button>
+          <button class="mark-option" type="button" data-mark-key="flower" title="はなまる" aria-label="はなまる">💮</button>
+          <button class="mark-option" type="button" data-mark-key="star" title="星" aria-label="星">⭐️</button>
+          <button class="mark-option" type="button" data-mark-key="fire" title="炎" aria-label="炎">🔥</button>
+        </span>
         <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
         <button class="btn warn" id="clearMonth" type="button">今月分をクリア</button>
         <button class="btn" id="printButton" type="button">印刷</button>
@@ -914,12 +990,20 @@
     const sheetMeta = document.getElementById("sheetMeta");
     const calendarPanel = document.getElementById("calendarPanel");
     const calendarActions = document.getElementById("calendarActions");
+    const markPicker = document.getElementById("markPicker");
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const DEFAULT_TITLE = "習慣化カレンダー";
     const TAGLINE = "5分だけでも、今日の一歩に。";
     const OLD_DEFAULT_TITLE = "月間タスクチェック表";
     const LEGACY_TITLES = [OLD_DEFAULT_TITLE, "ガントチャート"];
+    const DEFAULT_MARK_KEY = "check";
+    const MARK_OPTIONS = [
+      { key: "check", symbol: "✓" },
+      { key: "flower", symbol: "💮" },
+      { key: "star", symbol: "⭐️" },
+      { key: "fire", symbol: "🔥" }
+    ];
     const holidayCache = new Map();
     let state = loadState();
     let draggingProjectStart = null;
@@ -962,6 +1046,25 @@
     function isEditingText(event) {
       const target = event.target;
       return target && target.closest && target.closest("input, textarea, [contenteditable='true']");
+    }
+
+    function validMarkKey(key) {
+      if (key === "circle") return "star";
+      return MARK_OPTIONS.some(option => option.key === key) ? key : DEFAULT_MARK_KEY;
+    }
+
+    function activeMark() {
+      const markKey = validMarkKey(state.mark);
+      return MARK_OPTIONS.find(option => option.key === markKey) || MARK_OPTIONS[0];
+    }
+
+    function syncMarkPicker() {
+      const markKey = activeMark().key;
+      markPicker.querySelectorAll(".mark-option").forEach(button => {
+        const isActive = button.dataset.markKey === markKey;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
     }
 
     function makeId() {
@@ -1035,6 +1138,7 @@
           return {
             title: DEFAULT_TITLE,
             month: typeof saved.month === "string" ? saved.month : currentMonthValue(),
+            mark: validMarkKey(saved.mark),
             activeView: "calendar",
             months: saved.months
           };
@@ -1045,6 +1149,7 @@
           return {
             title: saved.title && !LEGACY_TITLES.includes(saved.title) ? saved.title : DEFAULT_TITLE,
             month: monthKey,
+            mark: validMarkKey(saved.mark),
             activeView: "calendar",
             months: {
               [monthKey]: { tasks: saved.tasks }
@@ -1058,6 +1163,7 @@
       return {
         title: DEFAULT_TITLE,
         month: monthKey,
+        mark: DEFAULT_MARK_KEY,
         activeView: "calendar",
         months: {
           [monthKey]: { tasks: defaultTasks() }
@@ -1068,6 +1174,7 @@
     function saveState() {
       state.title = DEFAULT_TITLE;
       state.month = monthInput.value;
+      state.mark = validMarkKey(state.mark);
       ensureMonth(state.month || currentMonthValue());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
@@ -1387,8 +1494,10 @@
       const year = selectedMonth.getFullYear();
       const month = selectedMonth.getMonth();
       const tasks = currentTasks();
+      const selectedMark = activeMark();
 
       syncMonthDisplay();
+      syncMarkPicker();
       board.innerHTML = "";
       board.style.setProperty("--days", dayCount);
       board.style.setProperty("--rows", tasks.length);
@@ -1529,6 +1638,8 @@
           const cell = document.createElement("button");
           cell.type = "button";
           cell.className = `check-cell ${classForDate(date)}${task.checks[dateKey] ? " is-checked" : ""}${groupStart ? " group-start" : ""}`;
+          cell.dataset.mark = selectedMark.symbol;
+          cell.dataset.markKey = selectedMark.key;
           cell.style.gridColumn = String(day + 3);
           cell.style.gridRow = String(row);
           const ariaProject = task.project ? `${task.project} ` : "";
@@ -1622,6 +1733,16 @@
     });
     document.getElementById("nextMonth").addEventListener("click", () => {
       changeMonth(shiftMonthKey(selectedMonthKey(), 1));
+    });
+    markPicker.querySelectorAll(".mark-option").forEach(button => {
+      button.addEventListener("click", () => {
+        const markKey = validMarkKey(button.dataset.markKey);
+        if (state.mark === markKey) return;
+        rememberState();
+        state.mark = markKey;
+        saveState();
+        render();
+      });
     });
     document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
     document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
