@@ -1,0 +1,1662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>習慣化カレンダー</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231769aa'/%3E%3Crect x='12' y='16' width='40' height='36' rx='5' fill='white'/%3E%3Cpath d='M12 25h40' stroke='%23d9dde3' stroke-width='4'/%3E%3Cpath d='M23 39l6 6 13-16' fill='none' stroke='%231769aa' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M22 10v10M42 10v10' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --ink: #20242a;
+      --muted: #6b7280;
+      --line: #8c9198;
+      --control-line: #aeb4bd;
+      --line-soft: #d9dde3;
+      --paper: #ffffff;
+      --surface: #f5f6f8;
+      --pink: #f2386d;
+      --blue: #2488d8;
+      --sunday: #f23850;
+      --sat-bg: #eaf4ff;
+      --sun-bg: #fff1f5;
+      --today: #fff7d6;
+      --active: #2f6fed;
+      --active-soft: #eaf2ff;
+      --waiting: #f5a524;
+      --waiting-soft: #fff5dd;
+      --not-started: #8a94a8;
+      --not-started-soft: #f1f3f7;
+      --done: #2fb36d;
+      --done-soft: #e8f8ef;
+      --month-col: 72px;
+      --project-col: 180px;
+      --task-col: 160px;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--surface);
+      font-size: 14px;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(245, 246, 248, 0.96);
+      backdrop-filter: blur(12px);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 260px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .view-field {
+      display: none;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    .month-nav {
+      display: grid;
+      grid-template-columns: minmax(128px, 1fr) 34px auto 34px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .month-picker {
+      position: relative;
+      min-width: 0;
+    }
+
+    .month-display-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    .month-display-button:focus-visible {
+      outline: 3px solid rgba(23, 105, 170, 0.35);
+      outline-offset: 1px;
+    }
+
+    .month-calendar-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      color: var(--ink);
+    }
+
+    .month-calendar-icon svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+
+    .native-month-input {
+      display: none;
+    }
+
+    .month-picker-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 50;
+      width: 250px;
+      border: 1px solid var(--line-soft);
+      border-radius: 4px;
+      background: #fff;
+      padding: 12px;
+      box-shadow: 0 12px 32px rgba(31, 41, 51, 0.16);
+    }
+
+    .month-picker-popover[hidden] {
+      display: none;
+    }
+
+    .month-picker-head {
+      display: grid;
+      grid-template-columns: 32px 1fr 32px;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .month-picker-year {
+      text-align: center;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .month-option {
+      min-height: 42px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .month-option:hover,
+    .month-option:focus-visible {
+      border-color: #b8d6f5;
+      background: #eef6ff;
+      outline: none;
+    }
+
+    .month-option.is-selected {
+      border-color: #1769aa;
+      background: #1769aa;
+      color: #fff;
+    }
+
+    .view-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .view-tab {
+      border: 0;
+      border-right: 1px solid var(--line-soft);
+      background: #fff;
+      color: var(--muted);
+      padding: 0 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .view-tab:last-child {
+      border-right: 0;
+    }
+
+    .view-tab.is-active {
+      background: #1769aa;
+      color: #fff;
+    }
+
+    .nav-btn {
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 9px;
+      cursor: pointer;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .nav-btn.compact {
+      width: 34px;
+      padding: 0;
+      font-size: 18px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: end;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .actions.is-hidden {
+      display: none;
+    }
+
+    .btn {
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      border-color: #1769aa;
+      background: #1769aa;
+      color: #fff;
+    }
+
+    .btn.warn {
+      border-color: #f0b8b2;
+      color: #b42318;
+    }
+
+    .workspace {
+      padding: 18px;
+    }
+
+    .sheet {
+      width: min(100%, 1500px);
+      margin: 0 auto;
+      background: var(--paper);
+      box-shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
+    }
+
+    .sheet + .sheet {
+      margin-top: 18px;
+    }
+
+    .sheet-title {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: end;
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sheet-title h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .title-stack {
+      display: grid;
+      gap: 5px;
+    }
+
+    .title-stack p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .sheet-title span {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .board-wrap {
+      overflow: auto;
+      padding: 0 12px 14px;
+    }
+
+    .calendar-board {
+      display: grid;
+      grid-template-columns: var(--month-col) var(--project-col) var(--task-col) repeat(var(--days), minmax(30px, 1fr));
+      grid-template-rows: 112px repeat(var(--rows), 38px);
+      min-width: calc(var(--month-col) + var(--project-col) + var(--task-col) + var(--days) * 30px);
+      background: #fff;
+    }
+
+    .month-panel {
+      grid-column: 1;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 2px;
+      padding: 10px 10px;
+      border-left: 1px solid transparent;
+      border-top: 1px solid transparent;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      color: var(--pink);
+    }
+
+    .month-number {
+      font-size: 42px;
+      line-height: 0.9;
+      font-weight: 300;
+      letter-spacing: 0;
+    }
+
+    .month-name {
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .year-name {
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .project-head,
+    .task-head {
+      grid-row: 1;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 10px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .project-head {
+      grid-column: 2;
+      border-left: 1px solid var(--line);
+      background: #faf7f0;
+    }
+
+    .task-head {
+      grid-column: 3;
+      background: #fff;
+    }
+
+    .date-head {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      justify-items: center;
+      align-items: start;
+      gap: 3px;
+      padding-top: 9px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .date-head:focus-visible {
+      outline: 3px solid rgba(23, 105, 170, 0.35);
+      outline-offset: -3px;
+      z-index: 2;
+    }
+
+    .date-head.sat,
+    .check-cell.sat {
+      background: var(--sat-bg);
+    }
+
+    .date-head.sun,
+    .date-head.holiday,
+    .check-cell.sun,
+    .check-cell.holiday {
+      background: var(--sun-bg);
+    }
+
+    .date-head.today,
+    .check-cell.today {
+      background: var(--today);
+    }
+
+    .day-num {
+      font-size: 21px;
+      line-height: 1;
+      font-weight: 500;
+    }
+
+    .weekday {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .sat .day-num,
+    .sat .weekday {
+      color: var(--blue);
+    }
+
+    .sun .day-num,
+    .sun .weekday,
+    .holiday .day-num,
+    .holiday .weekday {
+      color: var(--sunday);
+    }
+
+    .project-cell,
+    .task-cell {
+      position: relative;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .project-cell {
+      border-left: 1px solid var(--line);
+      background: #fffaf0;
+    }
+
+    .project-cell.group-even {
+      background: #f6fbff;
+    }
+
+    .task-cell {
+      background: #fff;
+    }
+
+    .task-cell.menu-open {
+      z-index: 30;
+    }
+
+    .project-cell.group-start,
+    .task-cell.group-start,
+    .check-cell.group-start {
+      box-shadow: none;
+    }
+
+    .project-input,
+    .task-input {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 0 30px 0 9px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .task-input {
+      padding-right: 40px;
+    }
+
+    .project-input {
+      color: #8a4b0f;
+    }
+
+    .group-even .project-input {
+      color: #175cd3;
+    }
+
+    .project-drag-handle {
+      position: absolute;
+      right: 4px;
+      top: 2px;
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      color: #4b5563;
+      cursor: grab;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.68;
+    }
+
+    .project-drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .project-cell:hover .project-drag-handle,
+    .project-drag-handle:focus-visible {
+      opacity: 1;
+      border-color: #b8c0cc;
+      background: rgba(255, 255, 255, 0.95);
+    }
+
+    .project-cell.drag-target-before {
+      box-shadow: inset 0 2px 0 #1769aa;
+    }
+
+    .project-cell.drag-target-after {
+      box-shadow: inset 0 -2px 0 #1769aa;
+    }
+
+    .row-menu {
+      position: absolute;
+      right: 4px;
+      z-index: 12;
+      opacity: 0.62;
+    }
+
+    .row-menu summary {
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.86);
+      color: #4b5563;
+      cursor: pointer;
+      font-weight: 900;
+      line-height: 1;
+      padding: 0;
+      list-style: none;
+    }
+
+    .row-menu summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .task-cell:hover .row-menu,
+    .row-menu:focus-within,
+    .row-menu[open] {
+      opacity: 1;
+    }
+
+    .row-menu summary:hover,
+    .row-menu summary:focus-visible {
+      border-color: #b8c0cc;
+      background: #fff;
+    }
+
+    .row-menu-popover {
+      position: absolute;
+      top: 24px;
+      right: 0;
+      z-index: 40;
+      display: grid;
+      width: 82px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(31, 41, 51, 0.16);
+      overflow: hidden;
+    }
+
+    .menu-action {
+      border: 0;
+      border-bottom: 1px solid var(--line-soft);
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .menu-action:last-child {
+      border-bottom: 0;
+    }
+
+    .menu-action:hover,
+    .menu-action:focus-visible {
+      background: #eef3f8;
+    }
+
+    .menu-action.remove-row {
+      color: #b42318;
+    }
+
+    .check-cell {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      color: #1769aa;
+    }
+
+    .check-cell::before {
+      content: "";
+      width: 17px;
+      height: 17px;
+      border: 1px dashed #c2c8d0;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .check-cell.is-checked::before {
+      border-style: solid;
+      border-color: #1769aa;
+      background: #e8f3ff;
+    }
+
+    .check-cell.is-checked::after {
+      content: "✓";
+      position: absolute;
+      font-size: 17px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .check-cell:focus-visible {
+      outline: 3px solid rgba(23, 105, 170, 0.35);
+      outline-offset: -3px;
+      z-index: 2;
+    }
+
+    @media (max-width: 860px) {
+      .toolbar,
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar-actions,
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .workspace {
+        padding: 14px;
+      }
+
+      .sheet-title {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 8mm;
+      }
+
+      body {
+        background: #fff;
+        font-size: 10px;
+      }
+
+      .toolbar {
+        display: none;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .workspace {
+        padding: 0;
+      }
+
+      .sheet {
+        width: 100%;
+        box-shadow: none;
+      }
+
+      .sheet-title {
+        padding: 0 0 5mm;
+      }
+
+      .sheet-title h1 {
+        font-size: 15px;
+      }
+
+      .sheet-title span {
+        font-size: 8px;
+      }
+
+      .board-wrap {
+        overflow: visible;
+        padding: 0;
+      }
+
+      .calendar-board {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: 20mm 28mm 35mm repeat(var(--days), minmax(0, 1fr));
+        grid-template-rows: 31mm repeat(var(--rows), 9.2mm);
+      }
+
+      .month-panel {
+        padding: 2mm;
+      }
+
+      .month-number {
+        font-size: 28px;
+      }
+
+      .month-name {
+        font-size: 8px;
+      }
+
+      .year-name,
+      .task-head,
+      .weekday {
+        font-size: 6.5px;
+      }
+
+      .day-num {
+        font-size: 12px;
+      }
+
+      .date-head {
+        gap: 1.5mm;
+        padding-top: 2mm;
+      }
+
+      .project-input,
+      .task-input {
+        padding: 0 2mm;
+        font-size: 8px;
+      }
+
+      .row-menu {
+        display: none;
+      }
+
+      .check-cell,
+      .date-head,
+      .project-cell,
+      .task-cell,
+      .month-panel,
+      .project-head,
+      .task-head {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+
+      .month-panel,
+      .project-head,
+      .task-head,
+      .project-cell,
+      .task-cell {
+        position: static;
+        box-shadow: none;
+      }
+
+      .check-cell::before {
+        width: 4.8mm;
+        height: 4.8mm;
+      }
+
+      .check-cell.is-checked::after {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="controls">
+      <label class="field">
+        <span class="month-nav">
+          <span class="month-picker">
+            <button class="month-display-button" id="monthPickerButton" type="button" aria-label="月を選択" aria-haspopup="dialog" aria-expanded="false" aria-controls="monthPickerPopover">
+              <span id="monthDisplay">2026年06月</span>
+              <span class="month-calendar-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2"></rect>
+                  <path d="M8 3v4M16 3v4M4 10h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                </svg>
+              </span>
+            </button>
+            <input id="monthInput" class="native-month-input" type="month" aria-label="月" tabindex="-1">
+            <div class="month-picker-popover" id="monthPickerPopover" role="dialog" aria-label="月を選択" hidden>
+              <div class="month-picker-head">
+                <button class="nav-btn compact" id="pickerPrevYear" type="button" title="前年" aria-label="前年">‹</button>
+                <span class="month-picker-year" id="monthPickerYear"></span>
+                <button class="nav-btn compact" id="pickerNextYear" type="button" title="翌年" aria-label="翌年">›</button>
+              </div>
+              <div class="month-grid" id="monthPickerGrid"></div>
+            </div>
+          </span>
+          <button class="nav-btn compact" id="prevMonth" type="button" title="前月" aria-label="前月">‹</button>
+          <button class="nav-btn" id="currentMonth" type="button">今月</button>
+          <button class="nav-btn compact" id="nextMonth" type="button" title="来月" aria-label="来月">›</button>
+        </span>
+      </label>
+    </div>
+    <div class="toolbar-actions">
+      <div class="actions" id="calendarActions">
+        <button class="btn" id="addRow" type="button">行を追加</button>
+        <button class="btn" id="removeBlankRows" type="button">空行を整理</button>
+        <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
+        <button class="btn warn" id="clearMonth" type="button">今月分をクリア</button>
+        <button class="btn" id="printButton" type="button">印刷</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="sheet" id="calendarPanel" aria-label="習慣化カレンダー">
+      <div class="sheet-title">
+        <div class="title-stack">
+          <h1 id="sheetTitle">習慣化カレンダー</h1>
+          <p id="sheetTagline">5分だけでも、今日の一歩に。</p>
+        </div>
+        <span id="sheetMeta"></span>
+      </div>
+      <div class="board-wrap">
+        <div class="calendar-board" id="calendarBoard"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "dailyStepsCalendarDataV2";
+    const monthInput = document.getElementById("monthInput");
+    const monthDisplay = document.getElementById("monthDisplay");
+    const monthPickerButton = document.getElementById("monthPickerButton");
+    const monthPickerPopover = document.getElementById("monthPickerPopover");
+    const monthPickerYear = document.getElementById("monthPickerYear");
+    const monthPickerGrid = document.getElementById("monthPickerGrid");
+    const pickerPrevYear = document.getElementById("pickerPrevYear");
+    const pickerNextYear = document.getElementById("pickerNextYear");
+    const board = document.getElementById("calendarBoard");
+    const sheetTitle = document.getElementById("sheetTitle");
+    const sheetTagline = document.getElementById("sheetTagline");
+    const sheetMeta = document.getElementById("sheetMeta");
+    const calendarPanel = document.getElementById("calendarPanel");
+    const calendarActions = document.getElementById("calendarActions");
+    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const DEFAULT_TITLE = "習慣化カレンダー";
+    const TAGLINE = "5分だけでも、今日の一歩に。";
+    const OLD_DEFAULT_TITLE = "月間タスクチェック表";
+    const LEGACY_TITLES = [OLD_DEFAULT_TITLE, "ガントチャート"];
+    const holidayCache = new Map();
+    let state = loadState();
+    let draggingProjectStart = null;
+    let pickerYear = Number(selectedMonthKey().slice(0, 4)) || new Date().getFullYear();
+    const history = {
+      undo: [],
+      redo: [],
+      limit: 80
+    };
+
+    function cloneState(value = state) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function rememberState() {
+      history.undo.push(cloneState());
+      if (history.undo.length > history.limit) history.undo.shift();
+      history.redo = [];
+    }
+
+    function applySnapshot(snapshot) {
+      state = cloneState(snapshot);
+      monthInput.value = state.month || currentMonthValue();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    function undoState() {
+      if (!history.undo.length) return;
+      history.redo.push(cloneState());
+      applySnapshot(history.undo.pop());
+    }
+
+    function redoState() {
+      if (!history.redo.length) return;
+      history.undo.push(cloneState());
+      applySnapshot(history.redo.pop());
+    }
+
+    function isEditingText(event) {
+      const target = event.target;
+      return target && target.closest && target.closest("input, textarea, [contenteditable='true']");
+    }
+
+    function makeId() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function makeTask(project = "", name = "") {
+      return { id: makeId(), project, name, checks: {} };
+    }
+
+    function blankTasks(count = 12) {
+      return Array.from({ length: count }, () => makeTask("", ""));
+    }
+
+    function defaultTasks() {
+      return [
+        makeTask("サイト改修", "要件整理"),
+        makeTask("", "ワイヤーフレーム"),
+        makeTask("", "デザイン確認"),
+        makeTask("", "コーディング"),
+        makeTask("業務改善", "ヒアリング"),
+        makeTask("", "テンプレ整備"),
+        makeTask("定例・MTG", "週次定例"),
+        makeTask("", "議事録作成"),
+        makeTask("", ""),
+        makeTask("", ""),
+        makeTask("", ""),
+        makeTask("", "")
+      ];
+    }
+
+    function normalizeTask(task) {
+      if (!task.id) task.id = makeId();
+      if (typeof task.project !== "string") task.project = "";
+      if (typeof task.name !== "string") task.name = "";
+      if (!task.checks) task.checks = {};
+      return task;
+    }
+
+    function normalizeMonthRecord(record) {
+      const monthRecord = record && Array.isArray(record.tasks) ? record : { tasks: blankTasks() };
+      monthRecord.tasks.forEach(normalizeTask);
+      if (!monthRecord.tasks.length) monthRecord.tasks = blankTasks();
+      return monthRecord;
+    }
+
+    function selectedMonthKey() {
+      return monthInput.value || state.month || currentMonthValue();
+    }
+
+    function ensureMonth(monthKey = selectedMonthKey()) {
+      if (!state.months) state.months = {};
+      if (!state.months[monthKey]) state.months[monthKey] = { tasks: blankTasks() };
+      state.months[monthKey] = normalizeMonthRecord(state.months[monthKey]);
+      return state.months[monthKey];
+    }
+
+    function currentTasks() {
+      return ensureMonth().tasks;
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && saved.months && typeof saved.months === "object") {
+          Object.keys(saved.months).forEach(monthKey => {
+            saved.months[monthKey] = normalizeMonthRecord(saved.months[monthKey]);
+          });
+          if (!saved.title || LEGACY_TITLES.includes(saved.title)) saved.title = DEFAULT_TITLE;
+          return {
+            title: DEFAULT_TITLE,
+            month: typeof saved.month === "string" ? saved.month : currentMonthValue(),
+            activeView: "calendar",
+            months: saved.months
+          };
+        }
+        if (saved && Array.isArray(saved.tasks)) {
+          const monthKey = saved.month || currentMonthValue();
+          saved.tasks.forEach(normalizeTask);
+          return {
+            title: saved.title && !LEGACY_TITLES.includes(saved.title) ? saved.title : DEFAULT_TITLE,
+            month: monthKey,
+            activeView: "calendar",
+            months: {
+              [monthKey]: { tasks: saved.tasks }
+            }
+          };
+        }
+      } catch (error) {
+        console.warn("Failed to read saved checklist", error);
+      }
+      const monthKey = currentMonthValue();
+      return {
+        title: DEFAULT_TITLE,
+        month: monthKey,
+        activeView: "calendar",
+        months: {
+          [monthKey]: { tasks: defaultTasks() }
+        }
+      };
+    }
+
+    function saveState() {
+      state.title = DEFAULT_TITLE;
+      state.month = monthInput.value;
+      ensureMonth(state.month || currentMonthValue());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function pad(number) {
+      return String(number).padStart(2, "0");
+    }
+
+    function formatDate(date) {
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function parseMonth(value) {
+      const [year, month] = value.split("-").map(Number);
+      return new Date(year, month - 1, 1);
+    }
+
+    function addDays(date, days) {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    }
+
+    function daysInMonth(date) {
+      return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    }
+
+    function currentMonthValue() {
+      const today = new Date();
+      return `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    }
+
+    function previousMonthKey(monthKey) {
+      const month = parseMonth(monthKey);
+      month.setMonth(month.getMonth() - 1);
+      return `${month.getFullYear()}-${pad(month.getMonth() + 1)}`;
+    }
+
+    function shiftMonthKey(monthKey, amount) {
+      const month = parseMonth(monthKey);
+      month.setMonth(month.getMonth() + amount);
+      return `${month.getFullYear()}-${pad(month.getMonth() + 1)}`;
+    }
+
+    function monthDisplayLabel(monthKey) {
+      const month = parseMonth(monthKey);
+      return `${month.getFullYear()}年${pad(month.getMonth() + 1)}月`;
+    }
+
+    function syncMonthDisplay() {
+      const monthKey = selectedMonthKey();
+      const label = monthDisplayLabel(monthKey);
+      pickerYear = parseMonth(monthKey).getFullYear();
+      monthDisplay.textContent = label;
+      monthPickerButton.setAttribute("aria-label", `${label}を選択`);
+      renderMonthPicker();
+    }
+
+    function changeMonth(monthKey) {
+      monthInput.value = monthKey;
+      saveState();
+      render();
+    }
+
+    function renderMonthPicker() {
+      const selected = parseMonth(selectedMonthKey());
+      monthPickerYear.textContent = `${pickerYear}`;
+      monthPickerGrid.innerHTML = "";
+
+      for (let month = 1; month <= 12; month += 1) {
+        const button = document.createElement("button");
+        button.className = `month-option${selected.getFullYear() === pickerYear && selected.getMonth() + 1 === month ? " is-selected" : ""}`;
+        button.type = "button";
+        button.textContent = `${month}月`;
+        button.setAttribute("aria-pressed", button.classList.contains("is-selected") ? "true" : "false");
+        button.addEventListener("click", () => {
+          closeMonthPicker();
+          changeMonth(`${pickerYear}-${pad(month)}`);
+        });
+        monthPickerGrid.appendChild(button);
+      }
+    }
+
+    function openMonthPicker() {
+      renderMonthPicker();
+      monthPickerPopover.hidden = false;
+      monthPickerButton.setAttribute("aria-expanded", "true");
+    }
+
+    function closeMonthPicker() {
+      monthPickerPopover.hidden = true;
+      monthPickerButton.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleMonthPicker(event) {
+      event.stopPropagation();
+      if (monthPickerPopover.hidden) openMonthPicker();
+      else closeMonthPicker();
+    }
+
+    function dateKeyFromParts(year, month, day) {
+      return `${year}-${pad(month)}-${pad(day)}`;
+    }
+
+    function nthMonday(year, month, nth) {
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const firstMonday = 1 + ((8 - firstDay) % 7);
+      return firstMonday + (nth - 1) * 7;
+    }
+
+    function springEquinoxDay(year) {
+      return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+    }
+
+    function autumnEquinoxDay(year) {
+      return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+    }
+
+    function addHoliday(holidays, year, month, day) {
+      holidays.add(dateKeyFromParts(year, month, day));
+    }
+
+    function nextDateKey(dateKey) {
+      const date = new Date(`${dateKey}T00:00:00`);
+      date.setDate(date.getDate() + 1);
+      return formatDate(date);
+    }
+
+    function japaneseHolidayKeys(year) {
+      if (holidayCache.has(year)) return holidayCache.get(year);
+
+      const holidays = new Set();
+      addHoliday(holidays, year, 1, 1);
+      addHoliday(holidays, year, 1, nthMonday(year, 1, 2));
+      addHoliday(holidays, year, 2, 11);
+      if (year >= 2020) addHoliday(holidays, year, 2, 23);
+      addHoliday(holidays, year, 3, springEquinoxDay(year));
+      addHoliday(holidays, year, 4, 29);
+      addHoliday(holidays, year, 5, 3);
+      addHoliday(holidays, year, 5, 4);
+      addHoliday(holidays, year, 5, 5);
+      addHoliday(holidays, year, 7, nthMonday(year, 7, 3));
+      if (year >= 2016) addHoliday(holidays, year, 8, 11);
+      addHoliday(holidays, year, 9, nthMonday(year, 9, 3));
+      addHoliday(holidays, year, 9, autumnEquinoxDay(year));
+      addHoliday(holidays, year, 10, nthMonday(year, 10, 2));
+      addHoliday(holidays, year, 11, 3);
+      addHoliday(holidays, year, 11, 23);
+
+      if (year === 2019) {
+        addHoliday(holidays, year, 4, 30);
+        addHoliday(holidays, year, 5, 1);
+        addHoliday(holidays, year, 5, 2);
+        addHoliday(holidays, year, 10, 22);
+      }
+
+      if (year === 2020) {
+        holidays.delete(dateKeyFromParts(year, 7, nthMonday(year, 7, 3)));
+        holidays.delete(dateKeyFromParts(year, 8, 11));
+        holidays.delete(dateKeyFromParts(year, 10, nthMonday(year, 10, 2)));
+        addHoliday(holidays, year, 7, 23);
+        addHoliday(holidays, year, 7, 24);
+        addHoliday(holidays, year, 8, 10);
+      }
+
+      if (year === 2021) {
+        holidays.delete(dateKeyFromParts(year, 7, nthMonday(year, 7, 3)));
+        holidays.delete(dateKeyFromParts(year, 8, 11));
+        holidays.delete(dateKeyFromParts(year, 10, nthMonday(year, 10, 2)));
+        addHoliday(holidays, year, 7, 22);
+        addHoliday(holidays, year, 7, 23);
+        addHoliday(holidays, year, 8, 8);
+      }
+
+      Array.from(holidays).forEach(dateKey => {
+        const date = new Date(`${dateKey}T00:00:00`);
+        if (date.getDay() !== 0) return;
+        let substitute = nextDateKey(dateKey);
+        while (holidays.has(substitute)) substitute = nextDateKey(substitute);
+        if (substitute.startsWith(`${year}-`)) holidays.add(substitute);
+      });
+
+      for (let month = 1; month <= 12; month += 1) {
+        const dayCount = daysInMonth(new Date(year, month - 1, 1));
+        for (let day = 2; day < dayCount; day += 1) {
+          const dateKey = dateKeyFromParts(year, month, day);
+          if (holidays.has(dateKey)) continue;
+          if (holidays.has(dateKeyFromParts(year, month, day - 1)) && holidays.has(dateKeyFromParts(year, month, day + 1))) {
+            holidays.add(dateKey);
+          }
+        }
+      }
+
+      holidayCache.set(year, holidays);
+      return holidays;
+    }
+
+    function isJapaneseHoliday(date) {
+      return japaneseHolidayKeys(date.getFullYear()).has(formatDate(date));
+    }
+
+    function classForDate(date) {
+      const day = date.getDay();
+      const classes = [];
+      if (day === 0) classes.push("sun");
+      if (day === 6) classes.push("sat");
+      if (isJapaneseHoliday(date)) classes.push("holiday");
+      if (formatDate(date) === formatDate(new Date())) classes.push("today");
+      return classes.join(" ");
+    }
+
+    function projectKey(task) {
+      return task.project.trim();
+    }
+
+    function effectiveProjectKey(taskIndex) {
+      const tasks = currentTasks();
+      for (let index = taskIndex; index >= 0; index -= 1) {
+        const key = projectKey(tasks[index]);
+        if (key) return key;
+      }
+      return "";
+    }
+
+    function projectGroupIndex(taskIndex) {
+      let index = -1;
+      let previous = null;
+      for (let currentIndex = 0; currentIndex <= taskIndex; currentIndex += 1) {
+        const current = effectiveProjectKey(currentIndex);
+        if (current && current !== previous) index += 1;
+        previous = current || null;
+      }
+      return Math.max(index, 0);
+    }
+
+    function isGroupStart(taskIndex) {
+      if (taskIndex === 0) return true;
+      const current = effectiveProjectKey(taskIndex);
+      const previous = effectiveProjectKey(taskIndex - 1);
+      return current !== previous;
+    }
+
+    function projectGroups() {
+      const tasks = currentTasks();
+      const groups = [];
+      let start = 0;
+      let previous = null;
+
+      for (let index = 0; index < tasks.length; index += 1) {
+        const current = effectiveProjectKey(index);
+        if (current !== previous) {
+          if (previous) groups.push({ key: previous, start, end: index });
+          start = index;
+          previous = current;
+        }
+      }
+
+      if (previous) groups.push({ key: previous, start, end: tasks.length });
+      return groups;
+    }
+
+    function groupForRow(taskIndex) {
+      return projectGroups().find(group => taskIndex >= group.start && taskIndex < group.end);
+    }
+
+    function moveProjectGroup(sourceStart, targetIndex, placement) {
+      const tasks = currentTasks();
+      const groups = projectGroups();
+      const source = groups.find(group => group.start === sourceStart);
+      const target = groupForRow(targetIndex);
+      if (!source || !target || source.start === target.start) return;
+
+      rememberState();
+      const sourceLength = source.end - source.start;
+      const segment = tasks.splice(source.start, sourceLength);
+      let insertIndex = placement === "after" ? target.end : target.start;
+
+      if (source.start < insertIndex) insertIndex -= sourceLength;
+      tasks.splice(insertIndex, 0, ...segment);
+      saveState();
+      render();
+    }
+
+    function clearDragTargets() {
+      document.querySelectorAll(".project-cell.drag-target-before, .project-cell.drag-target-after").forEach(cell => {
+        cell.classList.remove("drag-target-before", "drag-target-after");
+      });
+    }
+
+    function insertRow(taskIndex, placement) {
+      rememberState();
+      const tasks = currentTasks();
+      const insertIndex = placement === "above" ? taskIndex : taskIndex + 1;
+      const sourceTask = tasks[taskIndex];
+      const task = makeTask("", "");
+
+      if (placement === "above" && projectKey(sourceTask)) {
+        task.project = sourceTask.project;
+        sourceTask.project = "";
+      }
+
+      tasks.splice(insertIndex, 0, task);
+      saveState();
+      render();
+    }
+
+    function renderView() {
+      state.activeView = "calendar";
+      calendarPanel.hidden = false;
+      calendarActions.classList.remove("is-hidden");
+    }
+
+    function render() {
+      renderView();
+      const selectedMonth = parseMonth(monthInput.value);
+      const dayCount = daysInMonth(selectedMonth);
+      const year = selectedMonth.getFullYear();
+      const month = selectedMonth.getMonth();
+      const tasks = currentTasks();
+
+      syncMonthDisplay();
+      board.innerHTML = "";
+      board.style.setProperty("--days", dayCount);
+      board.style.setProperty("--rows", tasks.length);
+
+      document.title = DEFAULT_TITLE;
+      sheetTitle.textContent = DEFAULT_TITLE;
+      sheetTagline.textContent = TAGLINE;
+      sheetMeta.textContent = `${year}年${month + 1}月`;
+
+      const monthPanel = document.createElement("div");
+      monthPanel.className = "month-panel";
+      monthPanel.innerHTML = `
+        <span class="month-number">${month + 1}</span>
+        <span class="month-name">${monthNames[month]}</span>
+        <span class="year-name">${year}年</span>
+      `;
+      board.appendChild(monthPanel);
+
+      const taskHead = document.createElement("div");
+      taskHead.className = "task-head";
+      taskHead.textContent = "タスク";
+      board.appendChild(taskHead);
+
+      const projectHead = document.createElement("div");
+      projectHead.className = "project-head";
+      projectHead.textContent = "プロジェクト/カテゴリ";
+      board.appendChild(projectHead);
+
+      for (let day = 1; day <= dayCount; day += 1) {
+        const date = new Date(year, month, day);
+        const head = document.createElement("div");
+        head.className = `date-head ${classForDate(date)}`;
+        head.style.gridColumn = String(day + 3);
+        head.style.gridRow = "1";
+        head.innerHTML = `
+          <span class="day-num">${day}</span>
+          <span class="weekday">${weekdays[date.getDay()]}</span>
+        `;
+        board.appendChild(head);
+      }
+
+      tasks.forEach((task, taskIndex) => {
+        const row = taskIndex + 2;
+        const groupStart = isGroupStart(taskIndex);
+        const canDragProject = groupStart && Boolean(effectiveProjectKey(taskIndex));
+        const groupEven = effectiveProjectKey(taskIndex) && projectGroupIndex(taskIndex) % 2 === 1;
+        const groupClasses = `${groupStart ? " group-start" : ""}${groupEven ? " group-even" : ""}`;
+
+        const projectCell = document.createElement("div");
+        projectCell.className = `project-cell${groupClasses}${canDragProject ? " has-drag" : ""}`;
+        projectCell.style.gridColumn = "2";
+        projectCell.style.gridRow = String(row);
+        projectCell.innerHTML = `
+          ${canDragProject ? '<button class="project-drag-handle" type="button" draggable="true" title="プロジェクト/カテゴリを移動" aria-label="プロジェクト/カテゴリを移動">↕</button>' : ""}
+          <input class="project-input" type="text" value="${escapeAttr(task.project)}" aria-label="プロジェクト/カテゴリ名">
+        `;
+        const dragHandle = projectCell.querySelector(".project-drag-handle");
+        if (dragHandle) {
+          dragHandle.addEventListener("dragstart", event => {
+            draggingProjectStart = taskIndex;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", String(taskIndex));
+          });
+          dragHandle.addEventListener("dragend", () => {
+            draggingProjectStart = null;
+            clearDragTargets();
+          });
+        }
+        projectCell.addEventListener("dragover", event => {
+          if (draggingProjectStart === null || !groupForRow(taskIndex)) return;
+          event.preventDefault();
+          const placement = event.offsetY > projectCell.clientHeight / 2 ? "after" : "before";
+          clearDragTargets();
+          projectCell.classList.add(placement === "after" ? "drag-target-after" : "drag-target-before");
+        });
+        projectCell.addEventListener("dragleave", () => {
+          projectCell.classList.remove("drag-target-before", "drag-target-after");
+        });
+        projectCell.addEventListener("drop", event => {
+          if (draggingProjectStart === null) return;
+          event.preventDefault();
+          const placement = event.offsetY > projectCell.clientHeight / 2 ? "after" : "before";
+          moveProjectGroup(draggingProjectStart, taskIndex, placement);
+          draggingProjectStart = null;
+          clearDragTargets();
+        });
+        const projectInput = projectCell.querySelector(".project-input");
+        projectInput.addEventListener("input", () => {
+          task.project = projectInput.value;
+          saveState();
+        });
+        projectInput.addEventListener("change", () => {
+          render();
+        });
+        board.appendChild(projectCell);
+
+        const taskCell = document.createElement("div");
+        taskCell.className = `task-cell${groupClasses}`;
+        taskCell.style.gridColumn = "3";
+        taskCell.style.gridRow = String(row);
+        taskCell.innerHTML = `
+          <input class="task-input" type="text" value="${escapeAttr(task.name)}" aria-label="タスク名">
+          <details class="row-menu">
+            <summary title="行メニュー" aria-label="行メニュー">...</summary>
+            <div class="row-menu-popover">
+              <button class="menu-action add-above-row" type="button">上に追加</button>
+              <button class="menu-action add-below-row" type="button">下に追加</button>
+              <button class="menu-action remove-row" type="button">削除</button>
+            </div>
+          </details>
+        `;
+        const input = taskCell.querySelector(".task-input");
+        input.addEventListener("input", () => {
+          task.name = input.value;
+          saveState();
+        });
+        taskCell.querySelector(".add-above-row").addEventListener("click", () => {
+          insertRow(taskIndex, "above");
+        });
+        taskCell.querySelector(".add-below-row").addEventListener("click", () => {
+          insertRow(taskIndex, "below");
+        });
+        taskCell.querySelector(".remove-row").addEventListener("click", () => {
+          rememberState();
+          tasks.splice(taskIndex, 1);
+          if (!tasks.length) tasks.push(makeTask("", ""));
+          saveState();
+          render();
+        });
+        taskCell.querySelector(".row-menu").addEventListener("toggle", event => {
+          taskCell.classList.toggle("menu-open", event.target.open);
+        });
+        board.appendChild(taskCell);
+
+        for (let day = 1; day <= dayCount; day += 1) {
+          const date = new Date(year, month, day);
+          const dateKey = formatDate(date);
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = `check-cell ${classForDate(date)}${task.checks[dateKey] ? " is-checked" : ""}${groupStart ? " group-start" : ""}`;
+          cell.style.gridColumn = String(day + 3);
+          cell.style.gridRow = String(row);
+          const ariaProject = task.project ? `${task.project} ` : "";
+          cell.setAttribute("aria-label", `${ariaProject}${task.name || "タスク"} ${month + 1}月${day}日`);
+          cell.setAttribute("aria-pressed", task.checks[dateKey] ? "true" : "false");
+          cell.addEventListener("click", () => {
+            rememberState();
+            if (task.checks[dateKey]) {
+              delete task.checks[dateKey];
+            } else {
+              task.checks[dateKey] = true;
+            }
+            saveState();
+            render();
+          });
+          board.appendChild(cell);
+        }
+      });
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function clearVisibleMonthChecks() {
+      if (!window.confirm("今月分のプロジェクト/カテゴリ・タスク・チェックをすべて削除します。よろしいですか？")) return;
+      rememberState();
+      ensureMonth().tasks = blankTasks();
+      saveState();
+      render();
+    }
+
+    function removeBlankRows() {
+      rememberState();
+      const monthRecord = ensureMonth();
+      monthRecord.tasks = monthRecord.tasks.filter(task => task.project.trim() || task.name.trim() || Object.keys(task.checks).length);
+      if (!monthRecord.tasks.length) monthRecord.tasks = blankTasks();
+      saveState();
+      render();
+    }
+
+    function copyPreviousMonthTasks() {
+      if (!window.confirm("前月のプロジェクト/カテゴリとタスクを読み込みますか？\n現在の月の内容は置き換わります。")) return;
+
+      rememberState();
+      const currentMonth = selectedMonthKey();
+      const previousMonth = previousMonthKey(currentMonth);
+      const sourceRecord = state.months && state.months[previousMonth]
+        ? normalizeMonthRecord(state.months[previousMonth])
+        : { tasks: [] };
+      const sourceTasks = sourceRecord.tasks;
+      const copiedTasks = sourceTasks
+        .filter(task => task.project.trim() || task.name.trim())
+        .map(task => makeTask(task.project, task.name));
+
+      ensureMonth(currentMonth).tasks = copiedTasks.length
+        ? [...copiedTasks, makeTask("", ""), makeTask("", "")]
+        : blankTasks();
+
+      saveState();
+      render();
+    }
+
+    monthInput.value = state.month || currentMonthValue();
+    ensureMonth(monthInput.value);
+    syncMonthDisplay();
+    monthPickerButton.addEventListener("click", toggleMonthPicker);
+    monthPickerPopover.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+    pickerPrevYear.addEventListener("click", () => {
+      pickerYear -= 1;
+      renderMonthPicker();
+    });
+    pickerNextYear.addEventListener("click", () => {
+      pickerYear += 1;
+      renderMonthPicker();
+    });
+    monthInput.addEventListener("change", () => {
+      changeMonth(monthInput.value);
+    });
+    document.getElementById("prevMonth").addEventListener("click", () => {
+      changeMonth(shiftMonthKey(selectedMonthKey(), -1));
+    });
+    document.getElementById("currentMonth").addEventListener("click", () => {
+      changeMonth(currentMonthValue());
+    });
+    document.getElementById("nextMonth").addEventListener("click", () => {
+      changeMonth(shiftMonthKey(selectedMonthKey(), 1));
+    });
+    document.getElementById("addRow").addEventListener("click", () => {
+      rememberState();
+      currentTasks().push(makeTask("", ""));
+      saveState();
+      render();
+    });
+    document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
+    document.getElementById("removeBlankRows").addEventListener("click", removeBlankRows);
+    document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
+    document.getElementById("printButton").addEventListener("click", () => window.print());
+    document.addEventListener("click", () => {
+      closeMonthPicker();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !monthPickerPopover.hidden) {
+        closeMonthPicker();
+        monthPickerButton.focus();
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const modifier = event.metaKey || event.ctrlKey;
+      const undo = modifier && key === "z" && !event.shiftKey;
+      const redo = modifier && ((key === "z" && event.shiftKey) || key === "y");
+
+      if ((!undo && !redo) || isEditingText(event)) return;
+
+      event.preventDefault();
+      if (undo) undoState();
+      if (redo) redoState();
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: daily-steps-calendar
+    runtime: static
+    buildCommand: echo "No build step"
+    staticPublishPath: .
