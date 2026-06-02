@@ -56,10 +56,10 @@
       position: sticky;
       top: 0;
       z-index: 30;
-      display: grid;
-      grid-template-columns: minmax(260px, 1fr) auto;
+      display: flex;
+      justify-content: flex-end;
       gap: 16px;
-      align-items: end;
+      align-items: center;
       padding: 16px 22px;
       border-bottom: 1px solid var(--line-soft);
       background: rgba(245, 246, 248, 0.96);
@@ -264,13 +264,15 @@
     .toolbar-actions {
       display: flex;
       justify-content: flex-end;
-      align-items: end;
+      align-items: center;
+      width: 100%;
     }
 
     .actions {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
+      align-items: center;
       gap: 8px;
     }
 
@@ -698,9 +700,12 @@
     }
 
     @media (max-width: 860px) {
-      .toolbar,
       .controls {
         grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        justify-content: flex-start;
       }
 
       .toolbar-actions,
@@ -844,8 +849,8 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="controls">
-      <label class="field">
+    <div class="toolbar-actions">
+      <div class="actions" id="calendarActions">
         <span class="month-nav">
           <span class="month-picker">
             <button class="month-display-button" id="monthPickerButton" type="button" aria-label="月を選択" aria-haspopup="dialog" aria-expanded="false" aria-controls="monthPickerPopover">
@@ -871,12 +876,6 @@
           <button class="nav-btn" id="currentMonth" type="button">今月</button>
           <button class="nav-btn compact" id="nextMonth" type="button" title="来月" aria-label="来月">›</button>
         </span>
-      </label>
-    </div>
-    <div class="toolbar-actions">
-      <div class="actions" id="calendarActions">
-        <button class="btn" id="addRow" type="button">行を追加</button>
-        <button class="btn" id="removeBlankRows" type="button">空行を整理</button>
         <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
         <button class="btn warn" id="clearMonth" type="button">今月分をクリア</button>
         <button class="btn" id="printButton" type="button">印刷</button>
@@ -1624,14 +1623,7 @@
     document.getElementById("nextMonth").addEventListener("click", () => {
       changeMonth(shiftMonthKey(selectedMonthKey(), 1));
     });
-    document.getElementById("addRow").addEventListener("click", () => {
-      rememberState();
-      currentTasks().push(makeTask("", ""));
-      saveState();
-      render();
-    });
     document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
-    document.getElementById("removeBlankRows").addEventListener("click", removeBlankRows);
     document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
     document.getElementById("printButton").addEventListener("click", () => window.print());
     document.addEventListener("click", () => {
