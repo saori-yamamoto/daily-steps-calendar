@@ -20,6 +20,9 @@
       --sat-bg: #eaf4ff;
       --sun-bg: #fff1f5;
       --today: #fff7d6;
+      --project-bg: #fef9e8;
+      --project-alt-bg: #fef3c6;
+      --project-text: #20242a;
       --active: #2f6fed;
       --active-soft: #eaf2ff;
       --waiting: #f5a524;
@@ -123,7 +126,7 @@
       color: var(--ink);
       padding: 8px 10px;
       cursor: pointer;
-      font-weight: 800;
+      font-weight: 700;
       text-align: left;
     }
 
@@ -182,7 +185,7 @@
       text-align: center;
       color: var(--ink);
       font-size: 16px;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .month-grid {
@@ -198,7 +201,7 @@
       background: #fff;
       color: var(--ink);
       cursor: pointer;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .month-option:hover,
@@ -230,7 +233,7 @@
       background: #fff;
       color: var(--muted);
       padding: 0 10px;
-      font-weight: 800;
+      font-weight: 700;
       cursor: pointer;
     }
 
@@ -251,7 +254,7 @@
       color: var(--ink);
       padding: 0 9px;
       cursor: pointer;
-      font-weight: 800;
+      font-weight: 700;
       line-height: 1;
     }
 
@@ -280,6 +283,42 @@
       display: none;
     }
 
+    .scope-tabs {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .scope-tab {
+      min-height: 36px;
+      border: 0;
+      border-right: 1px solid var(--line-soft);
+      background: #fff;
+      color: var(--ink);
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .scope-tab:last-child {
+      border-right: 0;
+    }
+
+    .scope-tab:hover,
+    .scope-tab:focus-visible {
+      background: #eef6ff;
+      outline: none;
+    }
+
+    .scope-tab.is-active {
+      background: #1769aa;
+      color: #fff;
+    }
+
     .mark-picker {
       display: inline-flex;
       align-items: center;
@@ -298,7 +337,7 @@
       border-right: 1px solid var(--line-soft);
       color: var(--muted);
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .mark-option {
@@ -399,7 +438,7 @@
       margin: 0;
       color: var(--muted);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 700;
       line-height: 1.4;
     }
 
@@ -464,13 +503,13 @@
       border-bottom: 1px solid var(--line);
       color: var(--muted);
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .project-head {
       grid-column: 2;
       border-left: 1px solid var(--line);
-      background: #faf7f0;
+      background: var(--project-bg);
     }
 
     .task-head {
@@ -524,7 +563,7 @@
     .weekday {
       color: var(--muted);
       font-size: 10px;
-      font-weight: 700;
+      font-weight: 600;
     }
 
     .sat .day-num,
@@ -552,11 +591,11 @@
 
     .project-cell {
       border-left: 1px solid var(--line);
-      background: #fffaf0;
+      background: var(--project-bg);
     }
 
     .project-cell.group-even {
-      background: #f6fbff;
+      background: var(--project-alt-bg);
     }
 
     .task-cell {
@@ -582,7 +621,7 @@
       background: transparent;
       color: var(--ink);
       padding: 0 30px 0 9px;
-      font-weight: 700;
+      font-weight: 600;
       font-size: 13px;
     }
 
@@ -591,11 +630,12 @@
     }
 
     .project-input {
-      color: #8a4b0f;
+      color: var(--project-text);
+      font-weight: 700;
     }
 
     .group-even .project-input {
-      color: #175cd3;
+      color: var(--project-text);
     }
 
     .project-drag-handle {
@@ -920,6 +960,10 @@
   <header class="toolbar">
     <div class="toolbar-actions">
       <div class="actions" id="calendarActions">
+        <span class="scope-tabs" id="scopeTabs" role="tablist" aria-label="表示範囲">
+          <button class="scope-tab" type="button" data-scope-key="work" role="tab">仕事</button>
+          <button class="scope-tab" type="button" data-scope-key="life" role="tab">生活</button>
+        </span>
         <span class="month-nav">
           <span class="month-picker">
             <button class="month-display-button" id="monthPickerButton" type="button" aria-label="月を選択" aria-haspopup="dialog" aria-expanded="false" aria-controls="monthPickerPopover">
@@ -990,6 +1034,7 @@
     const sheetMeta = document.getElementById("sheetMeta");
     const calendarPanel = document.getElementById("calendarPanel");
     const calendarActions = document.getElementById("calendarActions");
+    const scopeTabs = document.getElementById("scopeTabs");
     const markPicker = document.getElementById("markPicker");
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -997,6 +1042,11 @@
     const TAGLINE = "5分だけでも、今日の一歩に。";
     const OLD_DEFAULT_TITLE = "月間タスクチェック表";
     const LEGACY_TITLES = [OLD_DEFAULT_TITLE, "ガントチャート"];
+    const DEFAULT_SCOPE_KEY = "work";
+    const SCOPE_OPTIONS = [
+      { key: "work", label: "仕事" },
+      { key: "life", label: "生活" }
+    ];
     const DEFAULT_MARK_KEY = "check";
     const MARK_OPTIONS = [
       { key: "check", symbol: "✓" },
@@ -1048,6 +1098,34 @@
       return target && target.closest && target.closest("input, textarea, [contenteditable='true']");
     }
 
+    function validScopeKey(key) {
+      if (key === "private") return "life";
+      return SCOPE_OPTIONS.some(option => option.key === key) ? key : DEFAULT_SCOPE_KEY;
+    }
+
+    function selectedScopeKey() {
+      return validScopeKey(state.activeScope);
+    }
+
+    function activeScopeLabel() {
+      const scopeKey = selectedScopeKey();
+      const option = SCOPE_OPTIONS.find(item => item.key === scopeKey);
+      return option ? option.label : SCOPE_OPTIONS[0].label;
+    }
+
+    function activeCategoryLabel() {
+      return selectedScopeKey() === "work" ? "プロジェクト/カテゴリ" : "テーマ/カテゴリ";
+    }
+
+    function syncScopeTabs() {
+      const scopeKey = selectedScopeKey();
+      scopeTabs.querySelectorAll(".scope-tab").forEach(button => {
+        const isActive = button.dataset.scopeKey === scopeKey;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+    }
+
     function validMarkKey(key) {
       if (key === "circle") return "star";
       return MARK_OPTIONS.some(option => option.key === key) ? key : DEFAULT_MARK_KEY;
@@ -1083,17 +1161,18 @@
     function defaultTasks() {
       return [
         makeTask("サイト改修", "要件整理"),
-        makeTask("", "ワイヤーフレーム"),
         makeTask("", "デザイン確認"),
-        makeTask("", "コーディング"),
-        makeTask("業務改善", "ヒアリング"),
-        makeTask("", "テンプレ整備"),
         makeTask("定例・MTG", "週次定例"),
-        makeTask("", "議事録作成"),
-        makeTask("", ""),
-        makeTask("", ""),
-        makeTask("", ""),
-        makeTask("", "")
+        ...blankTasks(7)
+      ];
+    }
+
+    function defaultLifeTasks() {
+      return [
+        makeTask("健康", "ストレッチ"),
+        makeTask("", "散歩"),
+        makeTask("学習", "読書"),
+        ...blankTasks(7)
       ];
     }
 
@@ -1105,10 +1184,46 @@
       return task;
     }
 
+    function normalizeScopeRecord(record, fallbackTasks = blankTasks()) {
+      const tasks = record && Array.isArray(record.tasks)
+        ? record.tasks
+        : Array.isArray(record)
+          ? record
+          : fallbackTasks;
+      tasks.forEach(normalizeTask);
+      return { tasks: tasks.length ? tasks : blankTasks() };
+    }
+
+    function blankMonthRecord() {
+      return {
+        scopes: {
+          work: normalizeScopeRecord({ tasks: blankTasks() }),
+          life: normalizeScopeRecord({ tasks: blankTasks() })
+        }
+      };
+    }
+
+    function defaultMonthRecord() {
+      return {
+        scopes: {
+          work: normalizeScopeRecord({ tasks: defaultTasks() }),
+          life: normalizeScopeRecord({ tasks: defaultLifeTasks() })
+        }
+      };
+    }
+
     function normalizeMonthRecord(record) {
-      const monthRecord = record && Array.isArray(record.tasks) ? record : { tasks: blankTasks() };
-      monthRecord.tasks.forEach(normalizeTask);
-      if (!monthRecord.tasks.length) monthRecord.tasks = blankTasks();
+      const monthRecord = { scopes: {} };
+      if (record && record.scopes && typeof record.scopes === "object") {
+        SCOPE_OPTIONS.forEach(option => {
+          const source = option.key === "life" ? record.scopes.life || record.scopes.private : record.scopes[option.key];
+          monthRecord.scopes[option.key] = normalizeScopeRecord(source);
+        });
+        return monthRecord;
+      }
+
+      monthRecord.scopes.work = normalizeScopeRecord(record && Array.isArray(record.tasks) ? record : { tasks: blankTasks() });
+      monthRecord.scopes.life = normalizeScopeRecord(record && record.scopes && record.scopes.private ? record.scopes.private : { tasks: blankTasks() });
       return monthRecord;
     }
 
@@ -1118,13 +1233,20 @@
 
     function ensureMonth(monthKey = selectedMonthKey()) {
       if (!state.months) state.months = {};
-      if (!state.months[monthKey]) state.months[monthKey] = { tasks: blankTasks() };
+      if (!state.months[monthKey]) state.months[monthKey] = blankMonthRecord();
       state.months[monthKey] = normalizeMonthRecord(state.months[monthKey]);
       return state.months[monthKey];
     }
 
+    function ensureScope(monthKey = selectedMonthKey(), scopeKey = selectedScopeKey()) {
+      const monthRecord = ensureMonth(monthKey);
+      const validKey = validScopeKey(scopeKey);
+      if (!monthRecord.scopes[validKey]) monthRecord.scopes[validKey] = normalizeScopeRecord({ tasks: blankTasks() });
+      return monthRecord.scopes[validKey];
+    }
+
     function currentTasks() {
-      return ensureMonth().tasks;
+      return ensureScope().tasks;
     }
 
     function loadState() {
@@ -1138,6 +1260,7 @@
           return {
             title: DEFAULT_TITLE,
             month: typeof saved.month === "string" ? saved.month : currentMonthValue(),
+            activeScope: validScopeKey(saved.activeScope),
             mark: validMarkKey(saved.mark),
             activeView: "calendar",
             months: saved.months
@@ -1149,10 +1272,11 @@
           return {
             title: saved.title && !LEGACY_TITLES.includes(saved.title) ? saved.title : DEFAULT_TITLE,
             month: monthKey,
+            activeScope: validScopeKey(saved.activeScope),
             mark: validMarkKey(saved.mark),
             activeView: "calendar",
             months: {
-              [monthKey]: { tasks: saved.tasks }
+              [monthKey]: normalizeMonthRecord({ tasks: saved.tasks })
             }
           };
         }
@@ -1163,10 +1287,11 @@
       return {
         title: DEFAULT_TITLE,
         month: monthKey,
+        activeScope: DEFAULT_SCOPE_KEY,
         mark: DEFAULT_MARK_KEY,
         activeView: "calendar",
         months: {
-          [monthKey]: { tasks: defaultTasks() }
+          [monthKey]: defaultMonthRecord()
         }
       };
     }
@@ -1174,6 +1299,7 @@
     function saveState() {
       state.title = DEFAULT_TITLE;
       state.month = monthInput.value;
+      state.activeScope = selectedScopeKey();
       state.mark = validMarkKey(state.mark);
       ensureMonth(state.month || currentMonthValue());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1495,8 +1621,10 @@
       const month = selectedMonth.getMonth();
       const tasks = currentTasks();
       const selectedMark = activeMark();
+      const categoryLabel = activeCategoryLabel();
 
       syncMonthDisplay();
+      syncScopeTabs();
       syncMarkPicker();
       board.innerHTML = "";
       board.style.setProperty("--days", dayCount);
@@ -1505,7 +1633,7 @@
       document.title = DEFAULT_TITLE;
       sheetTitle.textContent = DEFAULT_TITLE;
       sheetTagline.textContent = TAGLINE;
-      sheetMeta.textContent = `${year}年${month + 1}月`;
+      sheetMeta.textContent = `${year}年${month + 1}月・${activeScopeLabel()}`;
 
       const monthPanel = document.createElement("div");
       monthPanel.className = "month-panel";
@@ -1523,7 +1651,7 @@
 
       const projectHead = document.createElement("div");
       projectHead.className = "project-head";
-      projectHead.textContent = "プロジェクト/カテゴリ";
+      projectHead.textContent = categoryLabel;
       board.appendChild(projectHead);
 
       for (let day = 1; day <= dayCount; day += 1) {
@@ -1551,8 +1679,8 @@
         projectCell.style.gridColumn = "2";
         projectCell.style.gridRow = String(row);
         projectCell.innerHTML = `
-          ${canDragProject ? '<button class="project-drag-handle" type="button" draggable="true" title="プロジェクト/カテゴリを移動" aria-label="プロジェクト/カテゴリを移動">↕</button>' : ""}
-          <input class="project-input" type="text" value="${escapeAttr(task.project)}" aria-label="プロジェクト/カテゴリ名">
+          ${canDragProject ? `<button class="project-drag-handle" type="button" draggable="true" title="${categoryLabel}を移動" aria-label="${categoryLabel}を移動">↕</button>` : ""}
+          <input class="project-input" type="text" value="${escapeAttr(task.project)}" aria-label="${categoryLabel}名">
         `;
         const dragHandle = projectCell.querySelector(".project-drag-handle");
         if (dragHandle) {
@@ -1669,37 +1797,38 @@
     }
 
     function clearVisibleMonthChecks() {
-      if (!window.confirm("今月分のプロジェクト/カテゴリ・タスク・チェックをすべて削除します。よろしいですか？")) return;
+      if (!window.confirm(`今月分の「${activeScopeLabel()}」の${activeCategoryLabel()}・タスク・チェックをすべて削除します。よろしいですか？`)) return;
       rememberState();
-      ensureMonth().tasks = blankTasks();
+      ensureScope().tasks = blankTasks();
       saveState();
       render();
     }
 
     function removeBlankRows() {
       rememberState();
-      const monthRecord = ensureMonth();
-      monthRecord.tasks = monthRecord.tasks.filter(task => task.project.trim() || task.name.trim() || Object.keys(task.checks).length);
-      if (!monthRecord.tasks.length) monthRecord.tasks = blankTasks();
+      const scopeRecord = ensureScope();
+      scopeRecord.tasks = scopeRecord.tasks.filter(task => task.project.trim() || task.name.trim() || Object.keys(task.checks).length);
+      if (!scopeRecord.tasks.length) scopeRecord.tasks = blankTasks();
       saveState();
       render();
     }
 
     function copyPreviousMonthTasks() {
-      if (!window.confirm("前月のプロジェクト/カテゴリとタスクを読み込みますか？\n現在の月の内容は置き換わります。")) return;
+      if (!window.confirm(`前月の「${activeScopeLabel()}」の${activeCategoryLabel()}とタスクを読み込みますか？\n現在のタブの内容は置き換わります。`)) return;
 
       rememberState();
       const currentMonth = selectedMonthKey();
       const previousMonth = previousMonthKey(currentMonth);
+      const scopeKey = selectedScopeKey();
       const sourceRecord = state.months && state.months[previousMonth]
         ? normalizeMonthRecord(state.months[previousMonth])
-        : { tasks: [] };
-      const sourceTasks = sourceRecord.tasks;
+        : blankMonthRecord();
+      const sourceTasks = sourceRecord.scopes[scopeKey] ? sourceRecord.scopes[scopeKey].tasks : [];
       const copiedTasks = sourceTasks
         .filter(task => task.project.trim() || task.name.trim())
         .map(task => makeTask(task.project, task.name));
 
-      ensureMonth(currentMonth).tasks = copiedTasks.length
+      ensureScope(currentMonth, scopeKey).tasks = copiedTasks.length
         ? [...copiedTasks, makeTask("", ""), makeTask("", "")]
         : blankTasks();
 
@@ -1733,6 +1862,15 @@
     });
     document.getElementById("nextMonth").addEventListener("click", () => {
       changeMonth(shiftMonthKey(selectedMonthKey(), 1));
+    });
+    scopeTabs.querySelectorAll(".scope-tab").forEach(button => {
+      button.addEventListener("click", () => {
+        const scopeKey = validScopeKey(button.dataset.scopeKey);
+        if (selectedScopeKey() === scopeKey) return;
+        state.activeScope = scopeKey;
+        saveState();
+        render();
+      });
     });
     markPicker.querySelectorAll(".mark-option").forEach(button => {
       button.addEventListener("click", () => {
