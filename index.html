@@ -21,7 +21,7 @@
       --sun-bg: #fff1f5;
       --today: #fff7d6;
       --project-bg: #fef9e8;
-      --project-alt-bg: #fef3c6;
+      --project-alt-bg: #fef9e8;
       --project-text: #20242a;
       --active: #2f6fed;
       --active-soft: #eaf2ff;
@@ -372,7 +372,7 @@
 
     .mark-option[data-mark-key="flower"],
     .mark-option[data-mark-key="star"],
-    .mark-option[data-mark-key="fire"] {
+    .mark-option[data-mark-key="sakura"] {
       font-size: 18px;
     }
 
@@ -602,6 +602,7 @@
       background: #fff;
     }
 
+    .project-cell.menu-open,
     .task-cell.menu-open {
       z-index: 30;
     }
@@ -638,42 +639,8 @@
       color: var(--project-text);
     }
 
-    .project-drag-handle {
-      position: absolute;
-      right: 4px;
-      top: 2px;
-      display: grid;
-      place-items: center;
-      width: 18px;
-      height: 18px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      background: transparent;
-      color: #4b5563;
-      cursor: grab;
-      font-size: 12px;
-      font-weight: 900;
-      line-height: 1;
-      opacity: 0.68;
-    }
-
-    .project-drag-handle:active {
-      cursor: grabbing;
-    }
-
-    .project-cell:hover .project-drag-handle,
-    .project-drag-handle:focus-visible {
-      opacity: 1;
-      border-color: #b8c0cc;
-      background: rgba(255, 255, 255, 0.95);
-    }
-
-    .project-cell.drag-target-before {
-      box-shadow: inset 0 2px 0 #1769aa;
-    }
-
-    .project-cell.drag-target-after {
-      box-shadow: inset 0 -2px 0 #1769aa;
+    .project-cell.has-project-actions .project-input {
+      padding-right: 40px;
     }
 
     .row-menu {
@@ -704,6 +671,7 @@
     }
 
     .task-cell:hover .row-menu,
+    .project-cell:hover .row-menu,
     .row-menu:focus-within,
     .row-menu[open] {
       opacity: 1;
@@ -721,12 +689,16 @@
       right: 0;
       z-index: 40;
       display: grid;
-      width: 82px;
+      width: 96px;
       border: 1px solid var(--line-soft);
       border-radius: 6px;
       background: #fff;
       box-shadow: 0 10px 24px rgba(31, 41, 51, 0.16);
       overflow: hidden;
+    }
+
+    .project-menu .row-menu-popover {
+      width: 150px;
     }
 
     .menu-action {
@@ -748,6 +720,12 @@
     .menu-action:hover,
     .menu-action:focus-visible {
       background: #eef3f8;
+    }
+
+    .menu-action:disabled {
+      color: #a6afba;
+      cursor: default;
+      background: #f7f9fb;
     }
 
     .menu-action.remove-row {
@@ -797,7 +775,7 @@
 
     .check-cell[data-mark-key="flower"].is-checked::after,
     .check-cell[data-mark-key="star"].is-checked::after,
-    .check-cell[data-mark-key="fire"].is-checked::after {
+    .check-cell[data-mark-key="sakura"].is-checked::after {
       font-size: 23px;
       font-weight: 800;
     }
@@ -994,7 +972,7 @@
           <button class="mark-option" type="button" data-mark-key="check" title="チェック" aria-label="チェック">✓</button>
           <button class="mark-option" type="button" data-mark-key="flower" title="はなまる" aria-label="はなまる">💮</button>
           <button class="mark-option" type="button" data-mark-key="star" title="星" aria-label="星">⭐️</button>
-          <button class="mark-option" type="button" data-mark-key="fire" title="炎" aria-label="炎">🔥</button>
+          <button class="mark-option" type="button" data-mark-key="sakura" title="桜" aria-label="桜">🌸</button>
         </span>
         <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
         <button class="btn warn" id="clearMonth" type="button">今月の内容をクリア</button>
@@ -1053,11 +1031,10 @@
       { key: "check", symbol: "✓" },
       { key: "flower", symbol: "💮" },
       { key: "star", symbol: "⭐️" },
-      { key: "fire", symbol: "🔥" }
+      { key: "sakura", symbol: "🌸" }
     ];
     const holidayCache = new Map();
     let state = loadState();
-    let draggingProjectStart = null;
     let pickerYear = Number(selectedMonthKey().slice(0, 4)) || new Date().getFullYear();
     const history = {
       undo: [],
@@ -1129,6 +1106,7 @@
 
     function validMarkKey(key) {
       if (key === "circle") return "star";
+      if (key === "fire") return "sakura";
       return MARK_OPTIONS.some(option => option.key === key) ? key : DEFAULT_MARK_KEY;
     }
 
@@ -1146,13 +1124,19 @@
       });
     }
 
+    function closeRowMenus(exceptMenu = null) {
+      document.querySelectorAll(".row-menu[open]").forEach(menu => {
+        if (menu !== exceptMenu) menu.open = false;
+      });
+    }
+
     function makeId() {
       if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
       return `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
-    function makeTask(project = "", name = "") {
-      return { id: makeId(), project, name, checks: {} };
+    function makeTask(project = "", name = "", options = {}) {
+      return { id: makeId(), project, name, checks: {}, projectSlot: Boolean(options.projectSlot) };
     }
 
     function blankTasks(count = MIN_TABLE_ROWS) {
@@ -1189,6 +1173,7 @@
       if (typeof task.project !== "string") task.project = "";
       if (typeof task.name !== "string") task.name = "";
       if (!task.checks) task.checks = {};
+      task.projectSlot = Boolean(task.projectSlot && !task.project.trim());
       return task;
     }
 
@@ -1524,6 +1509,11 @@
       return task.project.trim();
     }
 
+    function isProjectSlot(task) {
+      if (!task || !task.projectSlot || projectKey(task)) return false;
+      return !task.name.trim() && !Object.keys(task.checks || {}).length;
+    }
+
     function effectiveProjectKey(taskIndex) {
       const tasks = currentTasks();
       const task = tasks[taskIndex];
@@ -1531,6 +1521,7 @@
 
       const ownKey = projectKey(task);
       if (ownKey) return ownKey;
+      if (isProjectSlot(task)) return `__project-slot-${task.id}`;
 
       const hasContent = task.name.trim() || Object.keys(task.checks || {}).length;
       if (!hasContent) return "";
@@ -1543,14 +1534,7 @@
     }
 
     function projectGroupIndex(taskIndex) {
-      let index = -1;
-      let previous = null;
-      for (let currentIndex = 0; currentIndex <= taskIndex; currentIndex += 1) {
-        const current = effectiveProjectKey(currentIndex);
-        if (current && current !== previous) index += 1;
-        previous = current || null;
-      }
-      return Math.max(index, 0);
+      return projectGroups().findIndex(group => taskIndex >= group.start && taskIndex < group.end);
     }
 
     function isGroupStart(taskIndex) {
@@ -1601,10 +1585,94 @@
       render();
     }
 
-    function clearDragTargets() {
-      document.querySelectorAll(".project-cell.drag-target-before, .project-cell.drag-target-after").forEach(cell => {
-        cell.classList.remove("drag-target-before", "drag-target-after");
-      });
+    function canMoveProjectGroup(sourceStart, direction) {
+      const groups = projectGroups();
+      const sourceIndex = groups.findIndex(group => group.start === sourceStart);
+      return sourceIndex >= 0 && sourceIndex + direction >= 0 && sourceIndex + direction < groups.length;
+    }
+
+    function moveProjectGroupByDirection(sourceStart, direction) {
+      if (!canMoveProjectGroup(sourceStart, direction)) return;
+
+      const groups = projectGroups();
+      const sourceIndex = groups.findIndex(group => group.start === sourceStart);
+      const target = groups[sourceIndex + direction];
+      moveProjectGroup(sourceStart, target.start, direction < 0 ? "before" : "after");
+    }
+
+    function addProjectGroupBelow(sourceStart) {
+      const tasks = currentTasks();
+      const source = projectGroups().find(group => group.start === sourceStart);
+      if (!source) return;
+
+      rememberState();
+      tasks.splice(source.end, 0, makeTask("", "", { projectSlot: true }));
+      saveState();
+      render();
+    }
+
+    function addTaskToProjectGroup(sourceStart) {
+      const tasks = currentTasks();
+      const source = projectGroups().find(group => group.start === sourceStart);
+      if (!source) return;
+
+      rememberState();
+      tasks.splice(source.end, 0, makeTask(source.key, ""));
+      saveState();
+      render();
+    }
+
+    function deleteProjectGroup(sourceStart) {
+      const tasks = currentTasks();
+      const source = projectGroups().find(group => group.start === sourceStart);
+      if (!source) return;
+      const sourceLabel = source.key.startsWith("__project-slot-")
+        ? `空の${activeCategoryLabel()}`
+        : `「${source.key}」`;
+      if (!window.confirm(`${sourceLabel}とタスクを削除します。よろしいですか？`)) return;
+
+      rememberState();
+      tasks.splice(source.start, source.end - source.start);
+      ensureScope().tasks = withMinimumRows(tasks);
+      saveState();
+      render();
+    }
+
+    function canMoveTaskRow(taskIndex, direction) {
+      const targetIndex = taskIndex + direction;
+      const sourceGroup = groupForRow(taskIndex);
+      const targetGroup = groupForRow(targetIndex);
+      return Boolean(
+        sourceGroup &&
+        targetGroup &&
+        sourceGroup.start === targetGroup.start &&
+        sourceGroup.key === targetGroup.key
+      );
+    }
+
+    function moveTaskRow(taskIndex, direction) {
+      if (!canMoveTaskRow(taskIndex, direction)) return;
+
+      rememberState();
+      const tasks = currentTasks();
+      const targetIndex = taskIndex + direction;
+      const source = tasks[taskIndex];
+      const target = tasks[targetIndex];
+      const sourceTask = {
+        id: source.id,
+        name: source.name,
+        checks: source.checks
+      };
+
+      source.id = target.id;
+      source.name = target.name;
+      source.checks = target.checks;
+      target.id = sourceTask.id;
+      target.name = sourceTask.name;
+      target.checks = sourceTask.checks;
+
+      saveState();
+      render();
     }
 
     function insertRow(taskIndex, placement) {
@@ -1613,10 +1681,13 @@
       const insertIndex = placement === "above" ? taskIndex : taskIndex + 1;
       const sourceTask = tasks[taskIndex];
       const task = makeTask("", "");
+      const sourceProject = effectiveProjectKey(taskIndex);
 
       if (placement === "above" && projectKey(sourceTask)) {
         task.project = sourceTask.project;
         sourceTask.project = "";
+      } else if (sourceProject) {
+        task.project = sourceProject;
       }
 
       tasks.splice(insertIndex, 0, task);
@@ -1686,52 +1757,64 @@
 
       tasks.forEach((task, taskIndex) => {
         const row = taskIndex + 2;
+        const effectiveProject = effectiveProjectKey(taskIndex);
         const groupStart = isGroupStart(taskIndex);
-        const canDragProject = groupStart && Boolean(effectiveProjectKey(taskIndex));
-        const groupEven = effectiveProjectKey(taskIndex) && projectGroupIndex(taskIndex) % 2 === 1;
+        const hasProjectActions = groupStart && Boolean(effectiveProject);
+        const groupIndex = projectGroupIndex(taskIndex);
+        const groupEven = groupIndex >= 0 && groupIndex % 2 === 1;
         const groupClasses = `${groupStart ? " group-start" : ""}${groupEven ? " group-even" : ""}`;
+        const projectInputValue = groupStart ? task.project || (isProjectSlot(task) ? "" : effectiveProject) : "";
 
         const projectCell = document.createElement("div");
-        projectCell.className = `project-cell${groupClasses}${canDragProject ? " has-drag" : ""}`;
+        projectCell.className = `project-cell${groupClasses}${hasProjectActions ? " has-project-actions" : ""}`;
         projectCell.style.gridColumn = "2";
         projectCell.style.gridRow = String(row);
         projectCell.innerHTML = `
-          ${canDragProject ? `<button class="project-drag-handle" type="button" draggable="true" title="${categoryLabel}を移動" aria-label="${categoryLabel}を移動">↕</button>` : ""}
-          <input class="project-input" type="text" value="${escapeAttr(task.project)}" aria-label="${categoryLabel}名">
+          <input class="project-input" type="text" value="${escapeAttr(projectInputValue)}" aria-label="${categoryLabel}名">
+          ${hasProjectActions ? `
+          <details class="row-menu project-menu">
+            <summary title="${categoryLabel}メニュー" aria-label="${categoryLabel}メニュー">...</summary>
+            <div class="row-menu-popover">
+              <button class="menu-action project-move-up" type="button"${canMoveProjectGroup(taskIndex, -1) ? "" : " disabled"}>上へ移動</button>
+              <button class="menu-action project-move-down" type="button"${canMoveProjectGroup(taskIndex, 1) ? "" : " disabled"}>下へ移動</button>
+              <button class="menu-action project-add-below" type="button">下にカテゴリ追加</button>
+              <button class="menu-action project-add-task" type="button">このカテゴリにタスク追加</button>
+              <button class="menu-action remove-row project-remove" type="button">削除</button>
+            </div>
+          </details>
+          ` : ""}
         `;
-        const dragHandle = projectCell.querySelector(".project-drag-handle");
-        if (dragHandle) {
-          dragHandle.addEventListener("dragstart", event => {
-            draggingProjectStart = taskIndex;
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", String(taskIndex));
+        if (hasProjectActions) {
+          projectCell.addEventListener("click", event => {
+            event.stopPropagation();
+            const action = event.target.closest(".menu-action");
+            if (!action || action.disabled) return;
+
+            if (action.classList.contains("project-move-up")) moveProjectGroupByDirection(taskIndex, -1);
+            if (action.classList.contains("project-move-down")) moveProjectGroupByDirection(taskIndex, 1);
+            if (action.classList.contains("project-add-below")) addProjectGroupBelow(taskIndex);
+            if (action.classList.contains("project-add-task")) addTaskToProjectGroup(taskIndex);
+            if (action.classList.contains("project-remove")) deleteProjectGroup(taskIndex);
           });
-          dragHandle.addEventListener("dragend", () => {
-            draggingProjectStart = null;
-            clearDragTargets();
+          projectCell.querySelector(".project-menu").addEventListener("toggle", event => {
+            if (event.target.open) closeRowMenus(event.target);
+            projectCell.classList.toggle("menu-open", event.target.open);
           });
         }
-        projectCell.addEventListener("dragover", event => {
-          if (draggingProjectStart === null || !groupForRow(taskIndex)) return;
-          event.preventDefault();
-          const placement = event.offsetY > projectCell.clientHeight / 2 ? "after" : "before";
-          clearDragTargets();
-          projectCell.classList.add(placement === "after" ? "drag-target-after" : "drag-target-before");
-        });
-        projectCell.addEventListener("dragleave", () => {
-          projectCell.classList.remove("drag-target-before", "drag-target-after");
-        });
-        projectCell.addEventListener("drop", event => {
-          if (draggingProjectStart === null) return;
-          event.preventDefault();
-          const placement = event.offsetY > projectCell.clientHeight / 2 ? "after" : "before";
-          moveProjectGroup(draggingProjectStart, taskIndex, placement);
-          draggingProjectStart = null;
-          clearDragTargets();
-        });
         const projectInput = projectCell.querySelector(".project-input");
+        const projectGroup = hasProjectActions ? groupForRow(taskIndex) : null;
         projectInput.addEventListener("input", () => {
-          task.project = projectInput.value;
+          if (projectGroup) {
+            for (let index = projectGroup.start; index < projectGroup.end; index += 1) {
+              if (index === taskIndex || tasks[index].project.trim()) {
+                tasks[index].project = projectInput.value;
+                tasks[index].projectSlot = Boolean(tasks[index].projectSlot && !projectInput.value.trim());
+              }
+            }
+          } else {
+            task.project = projectInput.value;
+            task.projectSlot = Boolean(task.projectSlot && !projectInput.value.trim());
+          }
           saveState();
         });
         projectInput.addEventListener("change", () => {
@@ -1748,6 +1831,8 @@
           <details class="row-menu">
             <summary title="行メニュー" aria-label="行メニュー">...</summary>
             <div class="row-menu-popover">
+              <button class="menu-action move-up-row" type="button"${canMoveTaskRow(taskIndex, -1) ? "" : " disabled"}>上へ移動</button>
+              <button class="menu-action move-down-row" type="button"${canMoveTaskRow(taskIndex, 1) ? "" : " disabled"}>下へ移動</button>
               <button class="menu-action add-above-row" type="button">上に追加</button>
               <button class="menu-action add-below-row" type="button">下に追加</button>
               <button class="menu-action remove-row" type="button">削除</button>
@@ -1758,6 +1843,12 @@
         input.addEventListener("input", () => {
           task.name = input.value;
           saveState();
+        });
+        taskCell.querySelector(".move-up-row").addEventListener("click", () => {
+          moveTaskRow(taskIndex, -1);
+        });
+        taskCell.querySelector(".move-down-row").addEventListener("click", () => {
+          moveTaskRow(taskIndex, 1);
         });
         taskCell.querySelector(".add-above-row").addEventListener("click", () => {
           insertRow(taskIndex, "above");
@@ -1773,6 +1864,7 @@
           render();
         });
         taskCell.querySelector(".row-menu").addEventListener("toggle", event => {
+          if (event.target.open) closeRowMenus(event.target);
           taskCell.classList.toggle("menu-open", event.target.open);
         });
         board.appendChild(taskCell);
@@ -1824,7 +1916,10 @@
     function removeBlankRows() {
       rememberState();
       const scopeRecord = ensureScope();
-      scopeRecord.tasks = scopeRecord.tasks.filter(task => task.project.trim() || task.name.trim() || Object.keys(task.checks).length);
+      scopeRecord.tasks = scopeRecord.tasks.filter((task, index) => {
+        const hasChecks = Object.keys(task.checks || {}).length;
+        return task.name.trim() || hasChecks || (projectKey(task) && isGroupStart(index));
+      });
       if (!scopeRecord.tasks.length) scopeRecord.tasks = blankTasks();
       saveState();
       render();
@@ -1903,10 +1998,14 @@
     document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
     document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
     document.getElementById("printButton").addEventListener("click", () => window.print());
-    document.addEventListener("click", () => {
+    document.addEventListener("click", event => {
       closeMonthPicker();
+      if (!event.target.closest(".row-menu")) closeRowMenus();
     });
     document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeRowMenus();
+      }
       if (event.key === "Escape" && !monthPickerPopover.hidden) {
         closeMonthPicker();
         monthPickerButton.focus();
