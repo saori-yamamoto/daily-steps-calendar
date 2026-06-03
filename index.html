@@ -1695,6 +1695,29 @@
       render();
     }
 
+    function deleteTaskRow(taskIndex) {
+      const tasks = currentTasks();
+      const task = tasks[taskIndex];
+      if (!task) return;
+
+      const sourceGroup = groupForRow(taskIndex);
+      const shouldKeepProject = sourceGroup && sourceGroup.start === taskIndex && sourceGroup.end - sourceGroup.start > 1;
+      const projectToKeep = task.project;
+
+      rememberState();
+      tasks.splice(taskIndex, 1);
+
+      if (shouldKeepProject && projectToKeep.trim() && tasks[taskIndex]) {
+        tasks[taskIndex].project = projectToKeep;
+        tasks[taskIndex].projectSlot = false;
+      }
+
+      if (!tasks.length) tasks.push(makeTask("", ""));
+      ensureScope().tasks = withMinimumRows(tasks);
+      saveState();
+      render();
+    }
+
     function renderView() {
       state.activeView = "calendar";
       calendarPanel.hidden = false;
@@ -1857,11 +1880,7 @@
           insertRow(taskIndex, "below");
         });
         taskCell.querySelector(".remove-row").addEventListener("click", () => {
-          rememberState();
-          tasks.splice(taskIndex, 1);
-          if (!tasks.length) tasks.push(makeTask("", ""));
-          saveState();
-          render();
+          deleteTaskRow(taskIndex);
         });
         taskCell.querySelector(".row-menu").addEventListener("toggle", event => {
           if (event.target.open) closeRowMenus(event.target);
