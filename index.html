@@ -997,7 +997,7 @@
           <button class="mark-option" type="button" data-mark-key="fire" title="炎" aria-label="炎">🔥</button>
         </span>
         <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
-        <button class="btn warn" id="clearMonth" type="button">今月分をクリア</button>
+        <button class="btn warn" id="clearMonth" type="button">今月の内容をクリア</button>
         <button class="btn" id="printButton" type="button">印刷</button>
       </div>
     </div>
@@ -1042,6 +1042,7 @@
     const TAGLINE = "5分だけでも、今日の一歩に。";
     const OLD_DEFAULT_TITLE = "月間タスクチェック表";
     const LEGACY_TITLES = [OLD_DEFAULT_TITLE, "ガントチャート"];
+    const MIN_TABLE_ROWS = 13;
     const DEFAULT_SCOPE_KEY = "work";
     const SCOPE_OPTIONS = [
       { key: "work", label: "仕事" },
@@ -1154,16 +1155,23 @@
       return { id: makeId(), project, name, checks: {} };
     }
 
-    function blankTasks(count = 12) {
+    function blankTasks(count = MIN_TABLE_ROWS) {
       return Array.from({ length: count }, () => makeTask("", ""));
+    }
+
+    function withMinimumRows(tasks) {
+      const rows = tasks.length ? tasks : [];
+      if (rows.length >= MIN_TABLE_ROWS) return rows;
+      return [...rows, ...blankTasks(MIN_TABLE_ROWS - rows.length)];
     }
 
     function defaultTasks() {
       return [
         makeTask("サイト改修", "要件整理"),
         makeTask("", "デザイン確認"),
-        makeTask("定例・MTG", "週次定例"),
-        ...blankTasks(7)
+        makeTask("業務改善", "ヒアリング"),
+        makeTask("", "テンプレ整備"),
+        ...blankTasks(9)
       ];
     }
 
@@ -1172,7 +1180,7 @@
         makeTask("健康", "ストレッチ"),
         makeTask("", "散歩"),
         makeTask("学習", "読書"),
-        ...blankTasks(7)
+        ...blankTasks(10)
       ];
     }
 
@@ -1191,7 +1199,7 @@
           ? record
           : fallbackTasks;
       tasks.forEach(normalizeTask);
-      return { tasks: tasks.length ? tasks : blankTasks() };
+      return { tasks: withMinimumRows(tasks) };
     }
 
     function blankMonthRecord() {
@@ -1518,6 +1526,15 @@
 
     function effectiveProjectKey(taskIndex) {
       const tasks = currentTasks();
+      const task = tasks[taskIndex];
+      if (!task) return "";
+
+      const ownKey = projectKey(task);
+      if (ownKey) return ownKey;
+
+      const hasContent = task.name.trim() || Object.keys(task.checks || {}).length;
+      if (!hasContent) return "";
+
       for (let index = taskIndex; index >= 0; index -= 1) {
         const key = projectKey(tasks[index]);
         if (key) return key;
@@ -1829,14 +1846,15 @@
         .map(task => makeTask(task.project, task.name));
 
       ensureScope(currentMonth, scopeKey).tasks = copiedTasks.length
-        ? [...copiedTasks, makeTask("", ""), makeTask("", "")]
+        ? withMinimumRows(copiedTasks)
         : blankTasks();
 
       saveState();
       render();
     }
 
-    monthInput.value = state.month || currentMonthValue();
+    monthInput.value = currentMonthValue();
+    state.month = monthInput.value;
     ensureMonth(monthInput.value);
     syncMonthDisplay();
     monthPickerButton.addEventListener("click", toggleMonthPicker);
