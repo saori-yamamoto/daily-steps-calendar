@@ -35,6 +35,7 @@
       --project-col: 180px;
       --task-col: 160px;
       --progress-col: 62px;
+      --progress-print-col: 11mm;
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif;
     }
 
@@ -377,6 +378,67 @@
       font-size: 18px;
     }
 
+    .progress-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 0 2px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .progress-toggle:focus-visible {
+      outline: 3px solid rgba(23, 105, 170, 0.28);
+      outline-offset: 3px;
+      border-radius: 999px;
+    }
+
+    .progress-toggle-text {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .progress-switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      border: 1px solid #c6ccd4;
+      border-radius: 999px;
+      background: #e6e9ee;
+      box-shadow: inset 0 1px 2px rgba(31, 41, 51, 0.12);
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .progress-switch-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(31, 41, 51, 0.25);
+      transition: transform 0.16s ease;
+    }
+
+    .progress-toggle.is-active .progress-toggle-text {
+      color: var(--ink);
+    }
+
+    .progress-toggle.is-active .progress-switch {
+      border-color: #1769aa;
+      background: #1769aa;
+    }
+
+    .progress-toggle.is-active .progress-switch-knob {
+      transform: translateX(18px);
+    }
+
     .btn {
       min-height: 38px;
       border: 1px solid var(--control-line);
@@ -474,6 +536,16 @@
       grid-template-rows: 112px repeat(var(--rows), 38px);
       min-width: calc(var(--month-col) + var(--project-col) + var(--task-col) + var(--progress-col) + var(--days) * 30px);
       background: #fff;
+    }
+
+    .calendar-board.progress-hidden {
+      --progress-col: 0px;
+      --progress-print-col: 0mm;
+    }
+
+    .calendar-board.progress-hidden .progress-head,
+    .calendar-board.progress-hidden .progress-cell {
+      display: none;
     }
 
     .month-panel {
@@ -997,7 +1069,7 @@
       .calendar-board {
         width: 100%;
         min-width: 0;
-        grid-template-columns: 20mm 28mm 34mm 11mm repeat(var(--days), minmax(0, 1fr));
+        grid-template-columns: 20mm 28mm 34mm var(--progress-print-col) repeat(var(--days), minmax(0, 1fr));
         grid-template-rows: 31mm repeat(var(--rows), 9.2mm);
       }
 
@@ -1124,6 +1196,10 @@
           <button class="mark-option" type="button" data-mark-key="star" title="星" aria-label="星">⭐️</button>
           <button class="mark-option" type="button" data-mark-key="sakura" title="桜" aria-label="桜">🌸</button>
         </span>
+        <button class="progress-toggle" id="progressToggle" type="button" aria-pressed="false" aria-label="進捗を表示">
+          <span class="progress-toggle-text">進捗</span>
+          <span class="progress-switch" aria-hidden="true"><span class="progress-switch-knob"></span></span>
+        </button>
         <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
         <button class="btn warn" id="clearMonth" type="button">今月の内容をクリア</button>
         <button class="btn" id="printButton" type="button">印刷</button>
@@ -1167,6 +1243,7 @@
     const calendarActions = document.getElementById("calendarActions");
     const scopeTabs = document.getElementById("scopeTabs");
     const markPicker = document.getElementById("markPicker");
+    const progressToggle = document.getElementById("progressToggle");
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const DEFAULT_TITLE = "習慣化カレンダー";
@@ -1274,6 +1351,10 @@
       return MARK_OPTIONS.find(option => option.key === markKey) || MARK_OPTIONS[0];
     }
 
+    function progressEnabled() {
+      return state.progressEnabled === true;
+    }
+
     function syncMarkPicker() {
       const markKey = activeMark().key;
       markPicker.querySelectorAll(".mark-option").forEach(button => {
@@ -1281,6 +1362,14 @@
         button.classList.toggle("is-active", isActive);
         button.setAttribute("aria-pressed", isActive ? "true" : "false");
       });
+    }
+
+    function syncProgressToggle() {
+      const enabled = progressEnabled();
+      progressToggle.classList.toggle("is-active", enabled);
+      progressToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+      progressToggle.setAttribute("aria-label", enabled ? "進捗を非表示" : "進捗を表示");
+      progressToggle.title = enabled ? "進捗を非表示" : "進捗を表示";
     }
 
     function closeRowMenus(exceptMenu = null) {
@@ -1433,6 +1522,7 @@
             month: typeof saved.month === "string" ? saved.month : currentMonthValue(),
             activeScope: validScopeKey(saved.activeScope),
             mark: validMarkKey(saved.mark),
+            progressEnabled: saved.progressEnabled === true,
             activeView: "calendar",
             months: saved.months
           };
@@ -1445,6 +1535,7 @@
             month: monthKey,
             activeScope: validScopeKey(saved.activeScope),
             mark: validMarkKey(saved.mark),
+            progressEnabled: saved.progressEnabled === true,
             activeView: "calendar",
             months: {
               [monthKey]: normalizeMonthRecord({ tasks: saved.tasks })
@@ -1460,6 +1551,7 @@
         month: monthKey,
         activeScope: DEFAULT_SCOPE_KEY,
         mark: DEFAULT_MARK_KEY,
+        progressEnabled: false,
         activeView: "calendar",
         months: {
           [monthKey]: defaultMonthRecord()
@@ -1472,6 +1564,7 @@
       state.month = monthInput.value;
       state.activeScope = selectedScopeKey();
       state.mark = validMarkKey(state.mark);
+      state.progressEnabled = progressEnabled();
       ensureMonth(state.month || currentMonthValue());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
@@ -1925,11 +2018,14 @@
       const tasks = currentTasks();
       const selectedMark = activeMark();
       const categoryLabel = activeCategoryLabel();
+      const showProgress = progressEnabled();
 
       syncMonthDisplay();
       syncScopeTabs();
       syncMarkPicker();
+      syncProgressToggle();
       board.innerHTML = "";
+      board.classList.toggle("progress-hidden", !showProgress);
       board.style.setProperty("--days", dayCount);
       board.style.setProperty("--rows", tasks.length);
 
@@ -2257,6 +2353,12 @@
         saveState();
         render();
       });
+    });
+    progressToggle.addEventListener("click", () => {
+      rememberState();
+      state.progressEnabled = !progressEnabled();
+      saveState();
+      render();
     });
     document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
     document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
