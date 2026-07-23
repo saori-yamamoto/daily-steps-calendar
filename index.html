@@ -439,6 +439,79 @@
       transform: translateX(18px);
     }
 
+    .settings-menu {
+      position: relative;
+      z-index: 34;
+    }
+
+    .settings-summary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      min-height: 38px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .settings-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .settings-summary::after {
+      content: none;
+    }
+
+    .settings-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 70;
+      display: grid;
+      min-width: 190px;
+      padding: 6px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 14px 34px rgba(17, 24, 39, 0.18);
+    }
+
+    .settings-divider {
+      height: 1px;
+      margin: 5px 2px;
+      background: var(--line-soft);
+    }
+
+    .settings-action {
+      min-height: 36px;
+      border: 0;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .settings-action:hover,
+    .settings-action:focus-visible {
+      background: #f3f5f7;
+      outline: none;
+    }
+
+    .settings-action.warn {
+      color: #b42318;
+    }
+
     .btn {
       min-height: 38px;
       border: 1px solid var(--control-line);
@@ -1200,9 +1273,19 @@
           <span class="progress-toggle-text">進捗</span>
           <span class="progress-switch" aria-hidden="true"><span class="progress-switch-knob"></span></span>
         </button>
-        <button class="btn" id="copyPreviousMonth" type="button">前月からコピー</button>
-        <button class="btn warn" id="clearMonth" type="button">今月の内容をクリア</button>
-        <button class="btn" id="printButton" type="button">印刷</button>
+        <details class="settings-menu" id="settingsMenu">
+          <summary class="settings-summary" aria-label="設定" title="設定">⚙️</summary>
+          <div class="settings-panel">
+            <button class="settings-action" id="copyPreviousMonth" type="button">前月からコピー</button>
+            <button class="settings-action warn" id="clearMonth" type="button">今月の内容をクリア</button>
+            <span class="settings-divider" aria-hidden="true"></span>
+            <button class="settings-action" id="exportData" type="button">データを書き出す</button>
+            <button class="settings-action" id="importData" type="button">データを読み込む</button>
+            <span class="settings-divider" aria-hidden="true"></span>
+            <button class="settings-action" id="exportJpegButton" type="button">JPEG書き出し</button>
+          </div>
+        </details>
+        <input id="importDataInput" type="file" accept="application/json,.json" hidden>
       </div>
     </div>
   </header>
@@ -1244,6 +1327,8 @@
     const scopeTabs = document.getElementById("scopeTabs");
     const markPicker = document.getElementById("markPicker");
     const progressToggle = document.getElementById("progressToggle");
+    const settingsMenu = document.getElementById("settingsMenu");
+    const importDataInput = document.getElementById("importDataInput");
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const DEFAULT_TITLE = "習慣化カレンダー";
@@ -1326,6 +1411,10 @@
       return selectedScopeKey() === "work" ? "プロジェクト/カテゴリ" : "テーマ/カテゴリ";
     }
 
+    function scopeFileSuffix() {
+      return selectedScopeKey() === "life" ? "life" : "work";
+    }
+
     function syncScopeTabs() {
       const scopeKey = selectedScopeKey();
       scopeTabs.querySelectorAll(".scope-tab").forEach(button => {
@@ -1387,6 +1476,10 @@
         const menu = picker.querySelector(".progress-menu");
         if (menu) menu.hidden = true;
       });
+    }
+
+    function closeSettingsMenu() {
+      if (settingsMenu) settingsMenu.open = false;
     }
 
     function makeId() {
@@ -1556,6 +1649,43 @@
         months: {
           [monthKey]: defaultMonthRecord()
         }
+      };
+    }
+
+    function validMonthKey(value) {
+      if (typeof value !== "string" || !/^\d{4}-\d{2}$/.test(value)) return false;
+      const month = Number(value.slice(5, 7));
+      return month >= 1 && month <= 12;
+    }
+
+    function normalizeImportedState(imported) {
+      const source = imported && imported.app === "daily-steps-calendar" && imported.data
+        ? imported.data
+        : imported;
+      if (!source || typeof source !== "object" || !source.months || typeof source.months !== "object") {
+        throw new Error("Invalid backup data");
+      }
+
+      const months = {};
+      Object.keys(source.months).forEach(monthKey => {
+        if (validMonthKey(monthKey)) months[monthKey] = normalizeMonthRecord(source.months[monthKey]);
+      });
+
+      const monthKeys = Object.keys(months).sort();
+      if (!monthKeys.length) throw new Error("Backup has no month data");
+
+      const month = validMonthKey(source.month) && months[source.month]
+        ? source.month
+        : monthKeys[monthKeys.length - 1];
+
+      return {
+        title: DEFAULT_TITLE,
+        month,
+        activeScope: validScopeKey(source.activeScope),
+        mark: validMarkKey(source.mark),
+        progressEnabled: source.progressEnabled === true,
+        activeView: "calendar",
+        months
       };
     }
 
@@ -2307,6 +2437,378 @@
       render();
     }
 
+    function exportData() {
+      closeSettingsMenu();
+      saveState();
+      const payload = {
+        app: "daily-steps-calendar",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        data: cloneState(state)
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `daily-steps-calendar-backup-${formatDate(new Date())}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function importDataFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        try {
+          const nextState = normalizeImportedState(JSON.parse(reader.result));
+          if (!window.confirm("読み込んだデータで、現在の入力内容を置き換えますか？")) return;
+          rememberState();
+          state = nextState;
+          monthInput.value = state.month;
+          saveState();
+          render();
+          window.alert("データを読み込みました。");
+        } catch (error) {
+          console.warn("Failed to import backup", error);
+          window.alert("データを読み込めませんでした。バックアップファイルを確認してください。");
+        }
+      });
+      reader.readAsText(file);
+    }
+
+    function openImportDataPicker() {
+      closeSettingsMenu();
+      importDataInput.value = "";
+      importDataInput.click();
+    }
+
+    function exportFont(weight, size) {
+      return `${weight} ${size}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif`;
+    }
+
+    function drawRect(ctx, x, y, width, height, fill = "#fff", stroke = "#aab1ba", lineWidth = 0.55) {
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, width, height);
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = lineWidth;
+        const offset = lineWidth / 2;
+        ctx.strokeRect(x + offset, y + offset, width - lineWidth, height - lineWidth);
+      }
+    }
+
+    function roundedPath(ctx, x, y, width, height, radius) {
+      const r = Math.min(radius, width / 2, height / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + width, y, x + width, y + height, r);
+      ctx.arcTo(x + width, y + height, x, y + height, r);
+      ctx.arcTo(x, y + height, x, y, r);
+      ctx.arcTo(x, y, x + width, y, r);
+      ctx.closePath();
+    }
+
+    function drawRoundedRect(ctx, x, y, width, height, radius, fill, stroke = null) {
+      roundedPath(ctx, x, y, width, height, radius);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    function drawText(ctx, text, x, y, options = {}) {
+      ctx.fillStyle = options.color || "#20242a";
+      ctx.font = exportFont(options.weight || 600, options.size || 13);
+      ctx.textAlign = options.align || "left";
+      ctx.textBaseline = options.baseline || "alphabetic";
+      ctx.fillText(String(text ?? ""), x, y, options.maxWidth);
+    }
+
+    function dateExportStyle(date) {
+      if (formatDate(date) === formatDate(new Date())) return { bg: "#fff7d6", color: "#20242a" };
+      if (isJapaneseHoliday(date) || date.getDay() === 0) return { bg: "#fff1f5", color: "#f23850" };
+      if (date.getDay() === 6) return { bg: "#eaf4ff", color: "#2488d8" };
+      return { bg: "#fff", color: "#20242a" };
+    }
+
+    function progressExportStyle(value) {
+      const styles = {
+        "-": { bg: "#f3f5f7", color: "#a0a8b3", border: "#e1e5ea" },
+        "0": { bg: "#fff", color: "#6b7280", border: "#d9dde3" },
+        "10": { bg: "#fffbec", color: "#5f4305", border: "#d9dde3" },
+        "20": { bg: "#fff9de", color: "#5f4305", border: "#d9dde3" },
+        "30": { bg: "#fff6cf", color: "#5f4305", border: "#d9dde3" },
+        "40": { bg: "#fff3bf", color: "#5f4305", border: "#d9dde3" },
+        "50": { bg: "#ffefae", color: "#5f4305", border: "#d9dde3" },
+        "60": { bg: "#ffe99a", color: "#5f4305", border: "#d9dde3" },
+        "70": { bg: "#ffe487", color: "#4d3604", border: "#ffe487" },
+        "80": { bg: "#ffdd72", color: "#4d3604", border: "#ffdd72" },
+        "90": { bg: "#ffd65e", color: "#3f2a02", border: "#ffd65e" },
+        "100": { bg: "#ffcf4b", color: "#3f2a02", border: "#ffcf4b" }
+      };
+      return styles[validProgress(value)] || styles["-"];
+    }
+
+    function drawCellText(ctx, text, x, y, width, height, options = {}) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+      drawText(ctx, text, x + (options.paddingX || 9), y + height / 2 + (options.offsetY || 5), {
+        color: options.color,
+        weight: options.weight,
+        size: options.size,
+        maxWidth: width - (options.paddingX || 9) * 2 - (options.extraRight || 0)
+      });
+      ctx.restore();
+    }
+
+    function drawCheckBox(ctx, x, y, checked, mark) {
+      const size = 17;
+      const left = x - size / 2;
+      const top = y - size / 2;
+      if (!checked) {
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        drawRoundedRect(ctx, left, top, size, size, 3, "rgba(255,255,255,0.62)", "#c2c8d0");
+        ctx.restore();
+        return;
+      }
+
+      if (mark.key === "check") {
+        drawRoundedRect(ctx, left, top, size, size, 3, "#e8f3ff", "#1769aa");
+        drawText(ctx, mark.symbol, x, y + 1, {
+          color: "#1769aa",
+          weight: 900,
+          size: 17,
+          align: "center",
+          baseline: "middle"
+        });
+        return;
+      }
+
+      drawText(ctx, mark.symbol, x, y + 1, {
+        weight: 800,
+        size: 23,
+        align: "center",
+        baseline: "middle"
+      });
+    }
+
+    function drawProgressPill(ctx, value, x, y, width, height) {
+      const style = progressExportStyle(value);
+      const pillX = x + 4;
+      const pillY = y + 6;
+      const pillW = width - 8;
+      const pillH = 26;
+      drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 4, style.bg, style.border);
+      drawText(ctx, value === "-" ? "-" : `${value}%`, pillX + pillW / 2 - 3, pillY + pillH / 2 + 1, {
+        color: style.color,
+        weight: 600,
+        size: 11,
+        align: "center",
+        baseline: "middle",
+        maxWidth: pillW - 12
+      });
+      drawText(ctx, "⌄", pillX + pillW - 8, pillY + pillH / 2 - 1, {
+        color: style.color,
+        weight: 600,
+        size: 9,
+        align: "center",
+        baseline: "middle"
+      });
+    }
+
+    function downloadCanvasJpeg(canvas, filename) {
+      const download = url => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      };
+
+      if (!canvas.toBlob) {
+        download(canvas.toDataURL("image/jpeg", 0.92));
+        return;
+      }
+
+      canvas.toBlob(blob => {
+        if (!blob) {
+          window.alert("JPEGを書き出せませんでした。");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        download(url);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }, "image/jpeg", 0.92);
+    }
+
+    function exportJpeg() {
+      closeSettingsMenu();
+      closeRowMenus();
+      closeProgressMenus();
+
+      try {
+        const selectedMonth = parseMonth(selectedMonthKey());
+        const year = selectedMonth.getFullYear();
+        const month = selectedMonth.getMonth();
+        const dayCount = daysInMonth(selectedMonth);
+        const tasks = currentTasks();
+        const selectedMark = activeMark();
+        const showProgress = progressEnabled();
+        const columns = {
+          month: 72,
+          project: 180,
+          task: 160,
+          progress: showProgress ? 62 : 0,
+          day: 34
+        };
+        const paddingX = 12;
+        const titleHeight = 56;
+        const headerHeight = 112;
+        const rowHeight = 38;
+        const noteHeight = 34;
+        const boardWidth = columns.month + columns.project + columns.task + columns.progress + dayCount * columns.day;
+        const boardHeight = headerHeight + tasks.length * rowHeight;
+        const width = boardWidth + paddingX * 2;
+        const height = titleHeight + boardHeight + noteHeight;
+        const scale = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, width, height);
+
+        drawText(ctx, DEFAULT_TITLE, 16, 28, { weight: 700, size: 20 });
+        drawText(ctx, TAGLINE, 16, 47, { color: "#6b7280", weight: 700, size: 12 });
+        drawText(ctx, `${year}年${month + 1}月・${activeScopeLabel()}`, width - 16, 37, {
+          color: "#6b7280",
+          weight: 600,
+          size: 12,
+          align: "right"
+        });
+        ctx.strokeStyle = "#aab1ba";
+        ctx.lineWidth = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(0, titleHeight + 0.5);
+        ctx.lineTo(width, titleHeight + 0.5);
+        ctx.stroke();
+
+        const boardX = paddingX;
+        const boardY = titleHeight;
+        const monthX = boardX;
+        const projectX = monthX + columns.month;
+        const taskX = projectX + columns.project;
+        const progressX = taskX + columns.task;
+        const daysX = progressX + columns.progress;
+
+        drawRect(ctx, monthX, boardY, columns.month, headerHeight, "#fff");
+        drawText(ctx, month + 1, monthX + 18, boardY + 47, { color: "#20242a", weight: 500, size: 42 });
+        drawText(ctx, monthNames[month], monthX + 18, boardY + 72, { color: "#20242a", weight: 500, size: 13 });
+        drawText(ctx, `${year}年`, monthX + 18, boardY + 91, { color: "#20242a", weight: 500, size: 11 });
+
+        drawRect(ctx, projectX, boardY, columns.project, headerHeight, "#fef9e8");
+        drawText(ctx, activeCategoryLabel(), projectX + 10, boardY + headerHeight - 18, {
+          color: "#6b7280",
+          weight: 700,
+          size: 10
+        });
+
+        drawRect(ctx, taskX, boardY, columns.task, headerHeight, "#fff");
+        drawText(ctx, "タスク", taskX + 10, boardY + headerHeight - 18, {
+          color: "#6b7280",
+          weight: 700,
+          size: 10
+        });
+
+        if (showProgress) {
+          drawRect(ctx, progressX, boardY, columns.progress, headerHeight, "#fff");
+          drawText(ctx, "進捗", progressX + columns.progress / 2, boardY + headerHeight - 18, {
+            color: "#6b7280",
+            weight: 700,
+            size: 10,
+            align: "center"
+          });
+        }
+
+        for (let day = 1; day <= dayCount; day += 1) {
+          const date = new Date(year, month, day);
+          const style = dateExportStyle(date);
+          const x = daysX + (day - 1) * columns.day;
+          drawRect(ctx, x, boardY, columns.day, headerHeight, style.bg);
+          drawText(ctx, day, x + columns.day / 2, boardY + 29, {
+            color: style.color,
+            weight: 500,
+            size: 21,
+            align: "center"
+          });
+          drawText(ctx, weekdays[date.getDay()], x + columns.day / 2, boardY + 50, {
+            color: style.color === "#20242a" ? "#6b7280" : style.color,
+            weight: 600,
+            size: 10,
+            align: "center"
+          });
+        }
+
+        tasks.forEach((task, taskIndex) => {
+          const y = boardY + headerHeight + taskIndex * rowHeight;
+          const groupStart = isGroupStart(taskIndex);
+          const projectText = groupStart ? task.project || (isProjectSlot(task) ? "" : effectiveProjectKey(taskIndex)) : "";
+
+          drawRect(ctx, monthX, y, columns.month, rowHeight, "#fff");
+          drawRect(ctx, projectX, y, columns.project, rowHeight, "#fef9e8");
+          drawCellText(ctx, projectText, projectX, y, columns.project, rowHeight, {
+            color: "#20242a",
+            weight: 700,
+            size: 13,
+            extraRight: 22
+          });
+          drawRect(ctx, taskX, y, columns.task, rowHeight, "#fff");
+          drawCellText(ctx, task.name, taskX, y, columns.task, rowHeight, {
+            color: "#20242a",
+            weight: 600,
+            size: 13,
+            extraRight: 28
+          });
+
+          if (showProgress) {
+            drawRect(ctx, progressX, y, columns.progress, rowHeight, "#fff");
+            drawProgressPill(ctx, validProgress(task.progress), progressX, y, columns.progress, rowHeight);
+          }
+
+          for (let day = 1; day <= dayCount; day += 1) {
+            const date = new Date(year, month, day);
+            const dateKey = formatDate(date);
+            const style = dateExportStyle(date);
+            const x = daysX + (day - 1) * columns.day;
+            drawRect(ctx, x, y, columns.day, rowHeight, style.bg);
+            drawCheckBox(ctx, x + columns.day / 2, y + rowHeight / 2, Boolean(task.checks[dateKey]), selectedMark);
+          }
+        });
+
+        drawText(ctx, "入力内容は、現在お使いの端末・ブラウザ内のみに保存されます。", width - 16, height - 14, {
+          color: "#7a828f",
+          weight: 400,
+          size: 11,
+          align: "right"
+        });
+
+        downloadCanvasJpeg(canvas, `daily-steps-calendar-${selectedMonthKey()}_${scopeFileSuffix()}.jpg`);
+      } catch (error) {
+        console.warn("Failed to export JPEG", error);
+        window.alert("JPEGを書き出せませんでした。");
+      }
+    }
+
     monthInput.value = currentMonthValue();
     state.month = monthInput.value;
     ensureMonth(monthInput.value);
@@ -2360,18 +2862,31 @@
       saveState();
       render();
     });
-    document.getElementById("copyPreviousMonth").addEventListener("click", copyPreviousMonthTasks);
-    document.getElementById("clearMonth").addEventListener("click", clearVisibleMonthChecks);
-    document.getElementById("printButton").addEventListener("click", () => window.print());
+    document.getElementById("copyPreviousMonth").addEventListener("click", () => {
+      closeSettingsMenu();
+      copyPreviousMonthTasks();
+    });
+    document.getElementById("clearMonth").addEventListener("click", () => {
+      closeSettingsMenu();
+      clearVisibleMonthChecks();
+    });
+    document.getElementById("exportJpegButton").addEventListener("click", exportJpeg);
+    document.getElementById("exportData").addEventListener("click", exportData);
+    document.getElementById("importData").addEventListener("click", openImportDataPicker);
+    importDataInput.addEventListener("change", () => {
+      importDataFile(importDataInput.files && importDataInput.files[0]);
+    });
     document.addEventListener("click", event => {
       closeMonthPicker();
       if (!event.target.closest(".row-menu")) closeRowMenus();
       if (!event.target.closest(".progress-picker")) closeProgressMenus();
+      if (!event.target.closest(".settings-menu")) closeSettingsMenu();
     });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
         closeRowMenus();
         closeProgressMenus();
+        closeSettingsMenu();
       }
       if (event.key === "Escape" && !monthPickerPopover.hidden) {
         closeMonthPicker();
