@@ -34,6 +34,7 @@
       --month-col: 72px;
       --project-col: 180px;
       --task-col: 160px;
+      --progress-col: 62px;
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif;
     }
 
@@ -469,9 +470,9 @@
 
     .calendar-board {
       display: grid;
-      grid-template-columns: var(--month-col) var(--project-col) var(--task-col) repeat(var(--days), minmax(30px, 1fr));
+      grid-template-columns: var(--month-col) var(--project-col) var(--task-col) var(--progress-col) repeat(var(--days), minmax(30px, 1fr));
       grid-template-rows: 112px repeat(var(--rows), 38px);
-      min-width: calc(var(--month-col) + var(--project-col) + var(--task-col) + var(--days) * 30px);
+      min-width: calc(var(--month-col) + var(--project-col) + var(--task-col) + var(--progress-col) + var(--days) * 30px);
       background: #fff;
     }
 
@@ -487,7 +488,7 @@
       border-top: 1px solid transparent;
       border-bottom: 1px solid var(--line);
       background: #fff;
-      color: var(--pink);
+      color: var(--ink);
     }
 
     .month-number {
@@ -508,7 +509,8 @@
     }
 
     .project-head,
-    .task-head {
+    .task-head,
+    .progress-head {
       grid-row: 1;
       display: flex;
       align-items: flex-end;
@@ -529,6 +531,13 @@
     .task-head {
       grid-column: 3;
       background: #fff;
+    }
+
+    .progress-head {
+      grid-column: 4;
+      justify-content: center;
+      background: #fff;
+      padding-inline: 6px;
     }
 
     .date-head {
@@ -593,7 +602,8 @@
     }
 
     .project-cell,
-    .task-cell {
+    .task-cell,
+    .progress-cell {
       position: relative;
       z-index: 6;
       display: flex;
@@ -616,6 +626,14 @@
       background: #fff;
     }
 
+    .progress-cell {
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      padding: 0 4px;
+      background: #fff;
+    }
+
     .project-cell.menu-open,
     .task-cell.menu-open {
       z-index: 30;
@@ -623,6 +641,7 @@
 
     .project-cell.group-start,
     .task-cell.group-start,
+    .progress-cell.group-start,
     .check-cell.group-start {
       box-shadow: none;
     }
@@ -655,6 +674,108 @@
 
     .project-cell.has-project-actions .project-input {
       padding-right: 40px;
+    }
+
+    .progress-picker {
+      position: relative;
+      width: 100%;
+    }
+
+    .progress-cell.menu-open {
+      z-index: 42;
+    }
+
+    .progress-select {
+      width: 100%;
+      min-width: 0;
+      height: 26px;
+      border: 1px solid var(--line-soft);
+      border-radius: 4px;
+      outline: 0;
+      background: #fff;
+      color: var(--muted);
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      text-align: center;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 0 3px;
+    }
+
+    .progress-select:focus-visible {
+      border-color: #d99b00;
+      box-shadow: 0 0 0 2px rgba(255, 207, 75, 0.32);
+    }
+
+    .progress-select::after {
+      content: "⌄";
+      color: currentColor;
+      font-size: 9px;
+      line-height: 1;
+      opacity: 0.58;
+      transform: translateY(-1px);
+    }
+
+    .progress-select[data-progress="-"] { background: #f3f5f7; color: #a0a8b3; border-color: #e1e5ea; }
+    .progress-select[data-progress="10"] { background: #fffbec; color: #5f4305; }
+    .progress-select[data-progress="20"] { background: #fff9de; color: #5f4305; }
+    .progress-select[data-progress="30"] { background: #fff6cf; color: #5f4305; }
+    .progress-select[data-progress="40"] { background: #fff3bf; color: #5f4305; }
+    .progress-select[data-progress="50"] { background: #ffefae; color: #5f4305; }
+    .progress-select[data-progress="60"] { background: #ffe99a; color: #5f4305; }
+    .progress-select[data-progress="70"] { background: #ffe487; color: #4d3604; border-color: #ffe487; }
+    .progress-select[data-progress="80"] { background: #ffdd72; color: #4d3604; border-color: #ffdd72; }
+    .progress-select[data-progress="90"] { background: #ffd65e; color: #3f2a02; border-color: #ffd65e; }
+    .progress-select[data-progress="100"] { background: #ffcf4b; color: #3f2a02; border-color: #ffcf4b; }
+
+    .progress-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      z-index: 80;
+      display: grid;
+      width: 68px;
+      padding: 4px;
+      border: 1px solid #aeb7c2;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 14px 34px rgba(17, 24, 39, 0.22);
+      opacity: 1;
+      transform: translateX(-50%);
+    }
+
+    .progress-menu[hidden] {
+      display: none;
+    }
+
+    .progress-option {
+      height: 25px;
+      border: 0;
+      border-radius: 5px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .progress-option:hover,
+    .progress-option:focus-visible {
+      outline: 0;
+      background: #fff7d6;
+    }
+
+    .progress-option.is-active {
+      background: #ffefae;
+      color: #5f4305;
     }
 
     .row-menu {
@@ -876,7 +997,7 @@
       .calendar-board {
         width: 100%;
         min-width: 0;
-        grid-template-columns: 20mm 28mm 35mm repeat(var(--days), minmax(0, 1fr));
+        grid-template-columns: 20mm 28mm 34mm 11mm repeat(var(--days), minmax(0, 1fr));
         grid-template-rows: 31mm repeat(var(--rows), 9.2mm);
       }
 
@@ -894,6 +1015,7 @@
 
       .year-name,
       .task-head,
+      .progress-head,
       .weekday {
         font-size: 6.5px;
       }
@@ -908,9 +1030,19 @@
       }
 
       .project-input,
-      .task-input {
+      .task-input,
+      .progress-select {
         padding: 0 2mm;
         font-size: 8px;
+      }
+
+      .progress-select {
+        height: 6mm;
+      }
+
+      .progress-select::after,
+      .progress-menu {
+        display: none !important;
       }
 
       .row-menu {
@@ -921,9 +1053,11 @@
       .date-head,
       .project-cell,
       .task-cell,
+      .progress-cell,
       .month-panel,
       .project-head,
-      .task-head {
+      .task-head,
+      .progress-head {
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
       }
@@ -931,8 +1065,10 @@
       .month-panel,
       .project-head,
       .task-head,
+      .progress-head,
       .project-cell,
-      .task-cell {
+      .task-cell,
+      .progress-cell {
         position: static;
         box-shadow: none;
       }
@@ -1050,6 +1186,7 @@
       { key: "star", symbol: "⭐️" },
       { key: "sakura", symbol: "🌸" }
     ];
+    const PROGRESS_OPTIONS = ["-", "0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100"];
     const holidayCache = new Map();
     let state = loadState();
     let pickerYear = Number(selectedMonthKey().slice(0, 4)) || new Date().getFullYear();
@@ -1127,6 +1264,11 @@
       return MARK_OPTIONS.some(option => option.key === key) ? key : DEFAULT_MARK_KEY;
     }
 
+    function validProgress(value) {
+      const progress = String(value ?? "-").replace("%", "");
+      return PROGRESS_OPTIONS.includes(progress) ? progress : "-";
+    }
+
     function activeMark() {
       const markKey = validMarkKey(state.mark);
       return MARK_OPTIONS.find(option => option.key === markKey) || MARK_OPTIONS[0];
@@ -1147,13 +1289,31 @@
       });
     }
 
+    function closeProgressMenus(exceptPicker = null) {
+      document.querySelectorAll(".progress-picker.is-open").forEach(picker => {
+        if (picker === exceptPicker) return;
+        picker.classList.remove("is-open");
+        picker.closest(".progress-cell")?.classList.remove("menu-open");
+        picker.querySelector(".progress-select")?.setAttribute("aria-expanded", "false");
+        const menu = picker.querySelector(".progress-menu");
+        if (menu) menu.hidden = true;
+      });
+    }
+
     function makeId() {
       if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
       return `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
     function makeTask(project = "", name = "", options = {}) {
-      return { id: makeId(), project, name, checks: {}, projectSlot: Boolean(options.projectSlot) };
+      return {
+        id: makeId(),
+        project,
+        name,
+        progress: validProgress(options.progress),
+        checks: {},
+        projectSlot: Boolean(options.projectSlot)
+      };
     }
 
     function blankTasks(count = MIN_TABLE_ROWS) {
@@ -1189,6 +1349,7 @@
       if (!task.id) task.id = makeId();
       if (typeof task.project !== "string") task.project = "";
       if (typeof task.name !== "string") task.name = "";
+      task.progress = validProgress(task.progress);
       if (!task.checks) task.checks = {};
       task.projectSlot = Boolean(task.projectSlot && !task.project.trim());
       return task;
@@ -1528,7 +1689,7 @@
 
     function isProjectSlot(task) {
       if (!task || !task.projectSlot || projectKey(task)) return false;
-      return !task.name.trim() && !Object.keys(task.checks || {}).length;
+      return !task.name.trim() && validProgress(task.progress) === "-" && !Object.keys(task.checks || {}).length;
     }
 
     function effectiveProjectKey(taskIndex) {
@@ -1540,7 +1701,7 @@
       if (ownKey) return ownKey;
       if (isProjectSlot(task)) return `__project-slot-${task.id}`;
 
-      const hasContent = task.name.trim() || Object.keys(task.checks || {}).length;
+      const hasContent = task.name.trim() || validProgress(task.progress) !== "-" || Object.keys(task.checks || {}).length;
       if (!hasContent) return "";
 
       for (let index = taskIndex; index >= 0; index -= 1) {
@@ -1628,6 +1789,17 @@
       render();
     }
 
+    function addProjectGroupAbove(sourceStart) {
+      const tasks = currentTasks();
+      const source = projectGroups().find(group => group.start === sourceStart);
+      if (!source) return;
+
+      rememberState();
+      tasks.splice(source.start, 0, makeTask("", "", { projectSlot: true }));
+      saveState();
+      render();
+    }
+
     function addTaskToProjectGroup(sourceStart) {
       const tasks = currentTasks();
       const source = projectGroups().find(group => group.start === sourceStart);
@@ -1678,14 +1850,17 @@
       const sourceTask = {
         id: source.id,
         name: source.name,
+        progress: source.progress,
         checks: source.checks
       };
 
       source.id = target.id;
       source.name = target.name;
+      source.progress = target.progress;
       source.checks = target.checks;
       target.id = sourceTask.id;
       target.name = sourceTask.name;
+      target.progress = sourceTask.progress;
       target.checks = sourceTask.checks;
 
       saveState();
@@ -1777,6 +1952,11 @@
       taskHead.textContent = "タスク";
       board.appendChild(taskHead);
 
+      const progressHead = document.createElement("div");
+      progressHead.className = "progress-head";
+      progressHead.textContent = "進捗";
+      board.appendChild(progressHead);
+
       const projectHead = document.createElement("div");
       projectHead.className = "project-head";
       projectHead.textContent = categoryLabel;
@@ -1786,7 +1966,7 @@
         const date = new Date(year, month, day);
         const head = document.createElement("div");
         head.className = `date-head ${classForDate(date)}`;
-        head.style.gridColumn = String(day + 3);
+        head.style.gridColumn = String(day + 4);
         head.style.gridRow = "1";
         head.innerHTML = `
           <span class="day-num">${day}</span>
@@ -1817,6 +1997,7 @@
             <div class="row-menu-popover">
               <button class="menu-action project-move-up" type="button"${canMoveProjectGroup(taskIndex, -1) ? "" : " disabled"}>上へ移動</button>
               <button class="menu-action project-move-down" type="button"${canMoveProjectGroup(taskIndex, 1) ? "" : " disabled"}>下へ移動</button>
+              <button class="menu-action project-add-above" type="button">上にカテゴリ追加</button>
               <button class="menu-action project-add-below" type="button">下にカテゴリ追加</button>
               <button class="menu-action project-add-task" type="button">このカテゴリにタスク追加</button>
               <button class="menu-action remove-row project-remove" type="button">削除</button>
@@ -1832,6 +2013,7 @@
 
             if (action.classList.contains("project-move-up")) moveProjectGroupByDirection(taskIndex, -1);
             if (action.classList.contains("project-move-down")) moveProjectGroupByDirection(taskIndex, 1);
+            if (action.classList.contains("project-add-above")) addProjectGroupAbove(taskIndex);
             if (action.classList.contains("project-add-below")) addProjectGroupBelow(taskIndex);
             if (action.classList.contains("project-add-task")) addTaskToProjectGroup(taskIndex);
             if (action.classList.contains("project-remove")) deleteProjectGroup(taskIndex);
@@ -1905,6 +2087,50 @@
         });
         board.appendChild(taskCell);
 
+        const progressCell = document.createElement("div");
+        const progressValue = validProgress(task.progress);
+        progressCell.className = `progress-cell${groupClasses}`;
+        progressCell.style.gridColumn = "4";
+        progressCell.style.gridRow = String(row);
+        progressCell.innerHTML = `
+          <div class="progress-picker">
+            <button type="button" class="progress-select" data-progress="${escapeAttr(progressValue)}" aria-haspopup="listbox" aria-expanded="false" aria-label="${task.name || "タスク"}の進捗">
+              ${progressValue === "-" ? "-" : `${progressValue}%`}
+            </button>
+            <div class="progress-menu" role="listbox" hidden>
+              ${PROGRESS_OPTIONS.map(value => `<button type="button" class="progress-option${progressValue === value ? " is-active" : ""}" data-progress="${escapeAttr(value)}" role="option" aria-selected="${progressValue === value ? "true" : "false"}">${value === "-" ? "-" : `${value}%`}</button>`).join("")}
+            </div>
+          </div>
+        `;
+        const progressPicker = progressCell.querySelector(".progress-picker");
+        const progressSelect = progressCell.querySelector(".progress-select");
+        const progressMenu = progressCell.querySelector(".progress-menu");
+        progressSelect.addEventListener("click", event => {
+          event.stopPropagation();
+          closeRowMenus();
+          const shouldOpen = !progressPicker.classList.contains("is-open");
+          closeProgressMenus(progressPicker);
+          progressPicker.classList.toggle("is-open", shouldOpen);
+          progressCell.classList.toggle("menu-open", shouldOpen);
+          progressSelect.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+          progressMenu.hidden = !shouldOpen;
+        });
+        progressMenu.querySelectorAll(".progress-option").forEach(option => {
+          option.addEventListener("click", event => {
+            event.stopPropagation();
+            const nextProgress = validProgress(option.dataset.progress);
+            if (task.progress !== nextProgress) {
+              rememberState();
+              task.progress = nextProgress;
+              saveState();
+              render();
+              return;
+            }
+            closeProgressMenus();
+          });
+        });
+        board.appendChild(progressCell);
+
         for (let day = 1; day <= dayCount; day += 1) {
           const date = new Date(year, month, day);
           const dateKey = formatDate(date);
@@ -1913,7 +2139,7 @@
           cell.className = `check-cell ${classForDate(date)}${task.checks[dateKey] ? " is-checked" : ""}${groupStart ? " group-start" : ""}`;
           cell.dataset.mark = selectedMark.symbol;
           cell.dataset.markKey = selectedMark.key;
-          cell.style.gridColumn = String(day + 3);
+          cell.style.gridColumn = String(day + 4);
           cell.style.gridRow = String(row);
           const ariaProject = task.project ? `${task.project} ` : "";
           cell.setAttribute("aria-label", `${ariaProject}${task.name || "タスク"} ${month + 1}月${day}日`);
@@ -1954,7 +2180,8 @@
       const scopeRecord = ensureScope();
       scopeRecord.tasks = scopeRecord.tasks.filter((task, index) => {
         const hasChecks = Object.keys(task.checks || {}).length;
-        return task.name.trim() || hasChecks || (projectKey(task) && isGroupStart(index));
+        const hasProgress = validProgress(task.progress) !== "-";
+        return task.name.trim() || hasChecks || hasProgress || (projectKey(task) && isGroupStart(index));
       });
       if (!scopeRecord.tasks.length) scopeRecord.tasks = blankTasks();
       saveState();
@@ -2037,10 +2264,12 @@
     document.addEventListener("click", event => {
       closeMonthPicker();
       if (!event.target.closest(".row-menu")) closeRowMenus();
+      if (!event.target.closest(".progress-picker")) closeProgressMenus();
     });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
         closeRowMenus();
+        closeProgressMenus();
       }
       if (event.key === "Escape" && !monthPickerPopover.hidden) {
         closeMonthPicker();
